@@ -1,5 +1,5 @@
 import MySQLdb
-from flask import jsonify
+from flask import jsonify, request
 
 
 def db_connect():
@@ -8,21 +8,18 @@ def db_connect():
 
 
 def clear_execute(cursor):
-    truncate_str = 'TRUNCATE TABLE '
-    cursor.execute('{0}forums'.format(truncate_str))
-    cursor.execute('{0}users'.format(truncate_str))
-    cursor.execute('{0}threads'.format(truncate_str))
-    cursor.execute('{0}posts'.format(truncate_str))
-    cursor.execute('{0}followers'.format(truncate_str))
-    cursor.execute('{0}subscriptions'.format(truncate_str))
+    query_str = 'TRUNCATE TABLE '
+    names_array = ['forums', 'users', 'threads', 'posts', 'followers', 'subscriptions']
+    for name in names_array:
+        cursor.execute(query_str + name)
 
 
 def status_execute(cursor):
-    truncate_str = 'SELECT COUNT(*) FROM '
+    query_str = 'SELECT COUNT(*) FROM '
     data_array = []
     names_array = ['users', 'threads', 'forums', 'posts']
     for name in names_array:
-        cursor.execute(truncate_str + name)
+        cursor.execute(query_str + name)
         data_array.append(cursor.fetchone()[0])
     code = 0
     return_data = {"code": code, "response": {"user": data_array[0],
@@ -30,3 +27,49 @@ def status_execute(cursor):
                                               "forum": data_array[2],
                                               "post": data_array[3]}}
     return jsonify(return_data)
+
+
+# USER
+
+def user_create_helper(data, cursor):
+    about = data['about']
+    email = data['email']
+    username = data['username']
+    name = data['name']
+    is_anonymous = data.get('isAnonymous', False)
+    query_str = """INSERT INTO users (username, about, name, email, isAnonymous) VALUES
+    ('%s','%s','%s','%s',%d)""" % (username, about, name, email, is_anonymous)
+    cursor.execute(query_str)
+    # return data
+    code = 0
+    new_id = cursor.lastrowid
+    return_data = {"code": code, "response": {"about": about, "email": email, "id": new_id,
+                                              "isAnonymous": is_anonymous, "name": name, "username": username}}
+    return return_data
+
+
+# FORUM
+
+
+
+
+
+def forum_create_execute(cursor, data):
+    query_str = "INSERT INTO forums (name,short_name,user) " \
+                "values ('%s','%s','%s')" \
+                % (data['name'], data['short_name'], data['user'])
+    cursor.execute(query_str)
+
+
+def integrity_err_action(e, data):
+    if 'short_name_UNIQUE' in e[1]:
+        query_str = "SELECT * from forums where short_name = '%s'" % (data['short_name'])
+    else:
+        query_str = "SELECT * from forums where name = '%s'" % (data['name'])
+    db = db_connect()
+    cursor = db.cursor()
+    cursor.execute(query_str)
+    forum = cursor.fetchone()
+    return_data = {"code": 0, "response": {"id": forum[3], "name": forum[0], "short_name": forum[1],
+                                           "user": forum[2]}}
+    return return_data
