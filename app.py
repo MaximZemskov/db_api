@@ -80,64 +80,100 @@ def forum_details():
     forum = request.args.get('forum', '')
     related = request.args.getlist('related')
     # executing
-    query_stmt = "SELECT * FROM forums WHERE short_name = '%s'" % forum
+    query_stmt = (
+                     "SELECT * "
+                     "FROM forums "
+                     "WHERE short_name = '%s'"
+                 ) % forum
     if cursor.execute(query_stmt) == 0:
         code = 1
-        err_msg = "forum not found"
+        err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
     # fetching a single row from table on current cursor position
     forum_data = cursor.fetchone()
+    forum_name_field = forum_data[0]
+    forum_shortname_field = forum_data[1]
+    forum_email_field = forum_data[2]
+    forum_id_field = forum_data[3]
     if 'user' in related:
-        email = forum_data[2]
-        query_stmt = "SELECT * FROM users WHERE email = '%s'" % email
+        query_stmt = (
+                         "SELECT * "
+                         "FROM users "
+                         "WHERE email = '%s'"
+                     ) % forum_email_field
         cursor.execute(query_stmt)
         user_data = cursor.fetchone()
+        # data
         if user_data[2] == 'None':
-            about = None
+            user_about_field = None
         else:
-            about = user_data[2]
+            user_about_field = user_data[2]
         if user_data[1] == 'None':
-            username = None
+            user_username_field = None
         else:
-            username = user_data[1]
+            user_username_field = user_data[1]
         if user_data[3] == 'None':
-            name = None
+            user_name_field = None
         else:
-            name = user_data[3]
-        query_stmt = "SELECT who_user FROM followers WHERE whom_user = '%s'" % (user_data[4])
+            user_name_field = user_data[3]
+        user_id_field = user_data[0]  # id
+        user_email_field = user_data[4]  # email
+        user_isAnonymous_field = user_data[5]  # isAnonymous
+        query_stmt = (
+                         "SELECT who_user "
+                         "FROM followers "
+                         "WHERE whom_user = '%s'"
+                     ) % (user_data[4])
+        #
         cursor.execute(query_stmt)
-        myfollowers = cursor.fetchall()
-        query_stmt = "SELECT whom_user FROM followers WHERE who_user = '%s'" % (user_data[4])
+        # fetching all followers rows from current cursor position
+        followers_data = cursor.fetchall()
+        query_stmt = (
+                         "SELECT whom_user "
+                         "FROM followers "
+                         "WHERE who_user = '%s'"
+                     ) % user_email_field
+        #
         cursor.execute(query_stmt)
-        myfollowing = cursor.fetchall()
-        query_stmt = "SELECT thread_id FROM subscriptions WHERE user = '%s'" % (user_data[4])
+        following_data = cursor.fetchall()
+        query_stmt = (
+                         "SELECT thread_id "
+                         "FROM subscriptions "
+                         "WHERE user = '%s'"
+                     ) % user_email_field
         cursor.execute(query_stmt)
-        mysubs = cursor.fetchall()
-        userinfo = {"about": about, "email": user_data[4], "followers": [x[0] for x in myfollowers],
-                    "following": [x[0] for x in myfollowing],
-                    "id": user_data[0], "isAnonymous": bool(user_data[5]),
-                    "name": name, "subscriptions": [x[0] for x in mysubs],
-                    "username": username}
+        subscriptions_data = cursor.fetchall()
+        user_about = {"about": user_about_field, "email": user_email_field, "followers": [x[0] for x in followers_data],
+                      "following": [x[0] for x in following_data],
+                      "id": user_id_field, "isAnonymous": bool(user_isAnonymous_field),
+                      "name": user_name_field, "subscriptions": [x[0] for x in subscriptions_data],
+                      "username": user_username_field}
     else:
-        userinfo = forum_data[2]
-    return_data = {"code": 0, "response": {"id": forum_data[3], "name": forum_data[0], "short_name": forum_data[1],
-                                           "user": userinfo}}
+        user_about = forum_data[2]
+
+    code = 0
+    return_data = {"code": code,
+                   "response": {"id": forum_id_field, "name": forum_name_field, "short_name": forum_shortname_field,
+                                "user": user_about}}
     return jsonify(return_data)
 
 
 @app.route('/db/api/forum/listPosts/', methods=['GET'])
 def forum_listPosts():
+    """Get posts from this forum"""
+    db = db_connect()
+    cursor = db.cursor()
     forum = request.args.get('forum')
     if not forum:
-        return_data = {"code": 3, "response": "bad syntax"}
+        code = 3
+        err_msg = "bad syntax"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
     related = request.args.getlist('related')
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
-    db = db_connect()
-    cursor = db.cursor()
     query_str = "SELECT * FROM forums WHERE short_name = '%s'" % (forum)
     if cursor.execute(query_str) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
@@ -148,7 +184,7 @@ def forum_listPosts():
         query_str += " AND date >= '%s' " % (since)
     query_str += " ORDER BY  date %s " % (order)
     if limit:
-        query_str += " limit %d" % (int(limit))
+        query_str += " LIMIT %d" % (int(limit))
     cursor.execute(query_str)
     myposts = cursor.fetchall()
     if 'forum' in related:
