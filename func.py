@@ -51,9 +51,6 @@ def user_create_helper(data, cursor):
 # FORUM
 
 
-
-
-
 def forum_create_execute(cursor, data):
     query_str = "INSERT INTO forums (name,short_name,user) " \
                 "values ('%s','%s','%s')" \
@@ -73,3 +70,13 @@ def integrity_err_action(e, data):
     return_data = {"code": 0, "response": {"id": forum[3], "name": forum[0], "short_name": forum[1],
                                            "user": forum[2]}}
     return return_data
+
+
+def fetch_listpost_forum_args():
+    forum = request.args.get('forum')
+    related = request.args.getlist('related')
+    order = request.args.get('order', 'desc')
+    limit = request.args.get('limit', False)
+    since = request.args.get('since', False)
+    data = {'forum': forum, 'related': related, 'order': order, 'limit': limit, 'since': since}
+    return data
