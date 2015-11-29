@@ -1,9 +1,25 @@
 # -*- coding: utf-8 -*-
 from flask import Flask
 from _mysql_exceptions import IntegrityError
+from flaskext.mysql import MySQL
 from func import *
+import ujson
 
 app = Flask(__name__)
+
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+mysql = MySQL()
+app.config['MYSQL_DATABASE_USER'] = 'db_api'
+app.config['MYSQL_DATABASE_DB'] = 'db'
+app.config['MYSQL_DATABASE_HOST'] = 'localhost'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'secret'
+mysql.init_app(app)
+connection = mysql.connect()
+
+
+def curs():
+    connection.ping(True)
+    return connection.cursor()
 
 
 # API
@@ -26,7 +42,7 @@ def clear():
     db.close()
     code = 0
     return_data = {"code": code, "response": "OK"}
-    return jsonify(return_data)
+    return ujson.dumps(return_data)
 
 
 @app.route('/db/api/status/', methods=['GET'])
@@ -65,14 +81,14 @@ def forum_create():
         # close db
         db.commit()
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     except IntegrityError, e:
         data = request.get_json()
         if e[0] == 1062:
-            return jsonify(integrity_err_action(e, data))
+            return ujson.dumps(integrity_err_action(e, data))
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/forum/details/', methods=['GET'])
@@ -87,7 +103,7 @@ def forum_details():
         code = 3
         err_msg = "wrong"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     related = request.args.getlist('related')
     # executing
     query_stmt = (
@@ -99,7 +115,7 @@ def forum_details():
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     # fetching a single row from table on current cursor position
     forum_data = cursor.fetchone()
     forum_name_field = forum_data[0]
@@ -178,7 +194,7 @@ def forum_details():
             "user": user_about
         }
     }
-    return jsonify(return_data)
+    return ujson.dumps(return_data)
 
 
 @app.route('/db/api/forum/listPosts/', methods=['GET'])
@@ -198,7 +214,7 @@ def forum_listPosts():
         code = 1
         err_msg = "forum not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     # fetching forum data
     forum_data = cursor.fetchone()
     query_stmt = (
@@ -331,7 +347,7 @@ def forum_listPosts():
             "user": user_info
         }
         posts_list.append(return_data)
-    return jsonify({"code": 0, "response": posts_list})
+    return ujson.dumps({"code": 0, "response": posts_list})
 
 
 @app.route('/db/api/forum/listThreads/', methods=['GET'])
@@ -351,7 +367,7 @@ def forum_listThreads():
         code = 1
         err_msg = "forum not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     forum_data = cursor.fetchone()
     query_stmt = (
                      "SELECT * "
@@ -446,7 +462,7 @@ def forum_listThreads():
             "title": thread[2], "user": user_info
         }
         threads_list.append(return_data)
-    return jsonify({"code": 0, "response": threads_list})
+    return ujson.dumps({"code": 0, "response": threads_list})
 
 
 @app.route('/db/api/forum/listUsers/', methods=['GET'])
@@ -464,7 +480,7 @@ def forum_listUsers():
         code = 1
         err_msg = "forum not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT DISTINCT email ,user_id, username, about,name, isAnonymous, IF(name = 'None', 0, 1) AS qwer "
                      "FROM posts INNER JOIN users "
@@ -525,7 +541,7 @@ def forum_listUsers():
             "username": username
         }
         users_list.append(user_info)
-    return jsonify({"code": 0, "response": users_list})
+    return ujson.dumps({"code": 0, "response": users_list})
 
 
 # POST
@@ -584,12 +600,12 @@ def post_create():
         cursor.execute(query_str)
         db.commit()
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/post/details/', methods=['GET'])
@@ -608,7 +624,7 @@ def post_details():
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     post_data = cursor.fetchone()
     if 'user' in related:
         query_stmt = (
@@ -730,7 +746,7 @@ def post_details():
             "thread": thread_info, "user": user_info
         }
     }
-    return jsonify(return_data)
+    return ujson.dumps(return_data)
 
 
 @app.route('/db/api/post/list/', methods=['GET'])
@@ -747,7 +763,7 @@ def post_list():
         code = 3
         err_msg = "wrong request"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
         "SELECT * "
         "FROM posts "
@@ -792,7 +808,7 @@ def post_list():
         })
     code = 0
     return_data = {"code": code, "response": post_response}
-    return jsonify(return_data)
+    return ujson.dumps(return_data)
 
 
 @app.route('/db/api/post/remove/', methods=['POST'])
@@ -807,7 +823,7 @@ def post_remove():
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT * "
                      "FROM posts "
@@ -840,7 +856,7 @@ def post_remove():
             }
             code = 0
             return_data = {"code": code, "response": post_response}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
         else:
             query_stmt = (
                              "UPDATE posts "
@@ -859,13 +875,13 @@ def post_remove():
             db.close()
             code = 0
             return_data = {"code": code, "response": {"post": post}}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     else:
         code = 1
         err_msg = "forum not found"
         return_data = {"code": code, "response": err_msg}
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/post/restore/', methods=['POST'])
@@ -880,7 +896,7 @@ def post_restore():
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT * "
                      "FROM posts "
@@ -913,7 +929,7 @@ def post_restore():
             }
             code = 0
             return_data = {"code": code, "response": response_post}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
         else:
             query_stmt = (
                              "UPDATE posts "
@@ -937,13 +953,13 @@ def post_restore():
                     "post": post
                 }
             }
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     else:
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/post/update/', methods=['POST'])
@@ -1002,7 +1018,7 @@ def post_update():
                 }
                 code = 0
                 return_data = {"code": code, "response": post_response}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 if post_data[1] == 0:
                     parent = None
@@ -1027,18 +1043,18 @@ def post_update():
                 }
                 code = 0
                 return_data = {"code": code, "response": post_response}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/post/vote/', methods=['POST'])
@@ -1078,7 +1094,7 @@ def post_vote():
                 code = 3
                 err_msg = "invalid request"
                 return_data = {"code": code, "response": err_msg}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             cursor.execute(query_stmt)
             db.commit()
             db.close()
@@ -1105,18 +1121,18 @@ def post_vote():
             }
             code = 0
             return_data = {"code": code, "response": response_post}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 # USERS
@@ -1151,18 +1167,18 @@ def user_create():
         }
         db.commit()
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     except IntegrityError, e:
         if e[0] == 1062:
             code = 5
             err_msg = "user exist"
             return_data = {"code": code, "response": err_msg}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid request"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/details/', methods=['GET'])
@@ -1179,7 +1195,7 @@ def user_details():
                  ) % user
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "USER NOT FOUND"}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     else:
         user_data = cursor.fetchone()
         if user_data[1] == 'None':
@@ -1232,7 +1248,7 @@ def user_details():
         }
         code = 0
         return_data = {"code": code, "response": user_info}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/follow/', methods=['POST'])
@@ -1244,7 +1260,7 @@ def user_follow():
         followee = data['followee']  # whom
         # if followee == follower:
         #     return_data = {"code": 3, "response": "WTF!"}
-        #     return jsonify(return_data)
+        #     return ujson.dumps(return_data)
         db = db_connect()
         cursor = db.cursor()
         query_stmt = (
@@ -1323,13 +1339,13 @@ def user_follow():
                     }
                     code = 0
                     return_data = {"code": code, "response": user_info}
-                    return jsonify(return_data)
+                    return ujson.dumps(return_data)
                 else:
                     code = 1
                     err_msg = "not found"
                     return_data = {"code": code, "response": err_msg}
                     db.close()
-                    return jsonify(return_data)
+                    return ujson.dumps(return_data)
             else:
                 query_stmt = (
                                  "SELECT * "
@@ -1385,19 +1401,19 @@ def user_follow():
                 }
                 code = 0
                 return_data = {"code": code, "response": user_info}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
 
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/listFollowers/', methods=['GET'])
@@ -1408,7 +1424,7 @@ def user_listFollowers():
     args = fetch_args_user_followers()
     # if not args['user']:
     #     return_data = {"code": 3, "response": "bad syntax"}
-    #     return jsonify(return_data)
+    #     return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT * "
                      "FROM users "
@@ -1483,13 +1499,13 @@ def user_listFollowers():
 
         code = 0
         return_data = {"code": code, "response": followers_list}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     else:
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/listFollowing/', methods=['GET'])
@@ -1500,7 +1516,7 @@ def user_listFollowing():
     args = fetch_args_user_followers()
     # if not user:
     #     return_data = {"code": 3, "response": "bad syntax"}
-    #     return jsonify(return_data)
+    #     return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT * "
                      "FROM users "
@@ -1574,13 +1590,13 @@ def user_listFollowing():
 
         code = 0
         return_data = {"code": code, "response": following_list}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     else:
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
         db.close()
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/listPosts/', methods=['GET'])
@@ -1593,7 +1609,7 @@ def user_listPosts():
         code = 3
         err_msg = "bad shit"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT * "
                      "FROM users "
@@ -1639,13 +1655,13 @@ def user_listPosts():
             })
         code = 0
         return_data = {"code": code, "response": posts_list}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
     else:
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/unfollow/', methods=['POST'])
@@ -1659,7 +1675,7 @@ def user_unfollow():
         followee = data['followee']  # whom
         # if followee == follower:
         #     return_data = {"code": 3, "response": "WTF!"}
-        #     return jsonify(return_data)
+        #     return ujson.dumps(return_data)
         query_stmt = (
                          "SELECT * "
                          "FROM users "
@@ -1738,13 +1754,13 @@ def user_unfollow():
                     }
                     code = 1
                     return_data = {"code": code, "response": user_info}
-                    return jsonify(return_data)
+                    return ujson.dumps(return_data)
                 else:
                     code = 1
                     err_msg = "not found"
                     return_data = {"code": code, "response": err_msg}
                     db.close()
-                    return jsonify(return_data)
+                    return ujson.dumps(return_data)
             else:
                 query_stmt = (
                                  "SELECT * "
@@ -1800,19 +1816,19 @@ def user_unfollow():
                 }
                 code = 0
                 return_data = {"code": code, "response": user_info}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
 
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/user/updateProfile/', methods=['POST'])
@@ -1888,7 +1904,7 @@ def user_updateProfile():
                     "username": username
                 }
                 return_data = {"code": 0, "response": user_info}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 query_stmt = (
                                  "SELECT who_user "
@@ -1935,18 +1951,18 @@ def user_updateProfile():
                     "subscriptions": [x[0] for x in subscriptions_data],
                     "username": username}
                 return_data = {"code": 0, "response": user_info}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 # THREADS
@@ -1981,12 +1997,12 @@ def thread_create():
                 'isDeleted': isDeleted,
                 'message': message,
                 'slug': slug, 'title': title, 'user': user}}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/details/', methods=['GET'])
@@ -2005,7 +2021,7 @@ def thread_details():
         code = 1
         err_msg = "not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     thread_data = cursor.fetchone()
     if 'user' in related:
         query_str = (
@@ -2083,7 +2099,7 @@ def thread_details():
         code = 3
         err_msg = "invalid syntax"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     return_data = {
         "code": 0,
         "response": {
@@ -2102,7 +2118,7 @@ def thread_details():
             "user": user_info
         }
     }
-    return jsonify(return_data)
+    return ujson.dumps(return_data)
 
 
 @app.route("/db/api/thread/list/", methods=["GET"])
@@ -2119,7 +2135,7 @@ def thread_list():
         code = 3
         err_msg = "wrong request"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
         "SELECT * "
         "FROM threads "
@@ -2159,7 +2175,7 @@ def thread_list():
         })
     code = 0
     return_data = {"code": code, "response": threads_list}
-    return jsonify(return_data)
+    return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/listPosts/', methods=['GET'])
@@ -2175,7 +2191,7 @@ def thread_listPost():
         code = 3
         err_msg = "wrong request"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
     query_stmt = (
                      "SELECT * "
                      "FROM threads "
@@ -2222,13 +2238,13 @@ def thread_listPost():
             })
         code = 0
         return_data = {"code": code, "response": post_list}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
     else:
         code = 1
         err_msg = "thread not found"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/remove/', methods=['POST'])
@@ -2276,7 +2292,7 @@ def thread_remove():
                         "thread": thread
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 query_stmt = (
                                  "UPDATE threads "
@@ -2308,17 +2324,17 @@ def thread_remove():
                                    "slug": thread_data[7],
                                    "title": thread_data[2],
                                    "user": thread_data[4]}}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid json"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/restore/', methods=['POST'])
@@ -2374,7 +2390,7 @@ def thread_restore():
                         "thread": thread
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 code = 0
                 return_data = {
@@ -2395,18 +2411,18 @@ def thread_restore():
                         "user": thread_data[4]
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
 
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid json"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/close/', methods=['POST'])
@@ -2441,7 +2457,7 @@ def thread_close():
                         "thread": thread
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 return_data = {
                     "code": 0,
@@ -2460,17 +2476,17 @@ def thread_close():
                         "title": thread_data[2],
                         "user": thread_data[4]}}
 
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/open/', methods=['POST'])
@@ -2505,7 +2521,7 @@ def thread_open():
                         "thread": thread
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 return_data = {
                     "code": 0,
@@ -2525,17 +2541,17 @@ def thread_open():
                         "user": thread_data[4]
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/update/', methods=['POST'])
@@ -2590,7 +2606,7 @@ def thread_update():
                         "user": thread_data[4]
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             else:
                 code = 0
                 return_data = {
@@ -2611,18 +2627,18 @@ def thread_update():
                         "user": thread_data[4]
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/vote/', methods=['POST'])
@@ -2662,7 +2678,7 @@ def thread_vote():
                 code = 3
                 err_msg = "wrong syntax"
                 return_data = {"code": code, "response": err_msg}
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
             cursor.execute(query_str)
             db.commit()
             db.close()
@@ -2683,18 +2699,18 @@ def thread_vote():
                     "user": thread_data[4]
                 }
             }
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
         else:
             code = 1
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/subscribe/', methods=['POST'])
@@ -2725,7 +2741,7 @@ def thread_subscribe():
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
         else:
             query_stmt = (
                              "SELECT * "
@@ -2750,7 +2766,7 @@ def thread_subscribe():
                         "user": user
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
 
             else:
                 code = 0
@@ -2761,12 +2777,12 @@ def thread_subscribe():
                         "user": user
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 @app.route('/db/api/thread/unsubscribe/', methods=['POST'])
@@ -2797,7 +2813,7 @@ def thread_unsubscribe():
             err_msg = "not found"
             return_data = {"code": code, "response": err_msg}
             db.close()
-            return jsonify(return_data)
+            return ujson.dumps(return_data)
         else:
             query_str = (
                             "SELECT * "
@@ -2823,7 +2839,7 @@ def thread_unsubscribe():
                         "user": user
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
 
             else:
                 code = 0
@@ -2834,12 +2850,12 @@ def thread_unsubscribe():
                         "user": user
                     }
                 }
-                return jsonify(return_data)
+                return ujson.dumps(return_data)
     except KeyError:
         code = 2
         err_msg = "invalid format"
         return_data = {"code": code, "response": err_msg}
-        return jsonify(return_data)
+        return ujson.dumps(return_data)
 
 
 if __name__ == '__main__':
