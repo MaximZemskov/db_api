@@ -1516,181 +1516,305 @@ def thread_details():
 
 @app.route("/db/api/thread/list/", methods=["GET"])
 def thread_list():
+    """List threads"""
+    db = db_connect()
+    cursor = db.cursor()
     user = request.args.get('user', False)
     forum = request.args.get('forum', False)
-    if user and forum:
-        return_data = {"code": 3, "response": "bad syntax"}
-        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', False)
-    db = db_connect()
-    cursor = db.cursor()
-    query_str = "SELECT * FROM threads WHERE "
+    if user and forum:
+        code = 3
+        err_msg = "wrong request"
+        return_data = {"code": code, "response": err_msg}
+        return jsonify(return_data)
+    query_stmt = (
+        "SELECT * "
+        "FROM threads "
+        "WHERE "
+    )
     if user:
-        query_str += "user =  '%s'" % (user)
+        query_stmt += "user =  '%s'" % user
     else:
-        query_str += "forum = '%s' " % (forum)
+        query_stmt += "forum = '%s' " % forum
     if since:
-        query_str += " AND date >= '%s' " % (since)
+        query_stmt += " AND date >= '%s' " % since
     if order:
-        query_str += " ORDER BY date %s " % (order)
+        query_stmt += " ORDER BY date %s " % order
     if limit:
-        query_str += " limit %d" % (int(limit))
+        query_stmt += " LIMIT %d" % (int(limit))
 
-    cursor.execute(query_str)
+    cursor.execute(query_stmt)
     threads = cursor.fetchall()
 
-    returnthreads = []
+    threads_list = []
 
-    for mythread in threads:
-        returnthreads.append({"date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mythread[10],
-                              "forum": mythread[1], "id": mythread[0], "isClosed": bool(mythread[3]),
-                              "isDeleted": bool(mythread[8]),
-                              "likes": mythread[9], "message": mythread[6], "points": (mythread[9] - mythread[10]),
-                              "posts": mythread[11], "slug": mythread[7], "title": mythread[2], "user": mythread[4]})
-    return_data = {"code": 0, "response": returnthreads}
+    for thread in threads:
+        threads_list.append({
+            "date": thread[5].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": thread[10],
+            "forum": thread[1],
+            "id": thread[0],
+            "isClosed": bool(thread[3]),
+            "isDeleted": bool(thread[8]),
+            "likes": thread[9],
+            "message": thread[6],
+            "points": (thread[9] - thread[10]),
+            "posts": thread[11],
+            "slug": thread[7],
+            "title": thread[2],
+            "user": thread[4]
+        })
+    code = 0
+    return_data = {"code": code, "response": threads_list}
     return jsonify(return_data)
 
 
 @app.route('/db/api/thread/listPosts/', methods=['GET'])
-def thread_listpost():
+def thread_listPost():
+    """Get posts from this thread"""
+    db = db_connect()
+    cursor = db.cursor()
     thread = request.args.get('thread', False)
-    if not thread:
-        return_data = {"code": 3, "response": "bad syntax"}
-        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', 'desc')
-    db = db_connect()
-    cursor = db.cursor()
-    query_str = "SELECT * FROM threads WHERE thread_id = %d" % (int(thread))
-    cursor.execute(query_str)
-    mythread = cursor.fetchone()
-    if mythread:
-        query_str = "SELECT * FROM posts WHERE thread = %d" % (int(thread))
+    if not thread:
+        code = 3
+        err_msg = "wrong request"
+        return_data = {"code": code, "response": err_msg}
+        return jsonify(return_data)
+    query_stmt = (
+                     "SELECT * "
+                     "FROM threads "
+                     "WHERE thread_id = %d"
+                 ) % (int(thread))
+    cursor.execute(query_stmt)
+    thread_data = cursor.fetchone()
+    if thread_data:
+        query_stmt = (
+                         "SELECT * "
+                         "FROM posts "
+                         "WHERE thread = %d"
+                     ) % (int(thread))
         if since:
-            query_str += " AND date >= '%s' " % (since)
-        query_str += " ORDER BY date %s " % (order)
+            query_stmt += " AND date >= '%s' " % since
+        query_stmt += " ORDER BY date %s " % order
         if limit:
-            query_str += " limit %d" % (int(limit))
-        cursor.execute(query_str)
-        myposts = cursor.fetchall()
-        postlist = []
+            query_stmt += " LIMIT %d" % (int(limit))
+        cursor.execute(query_stmt)
+        posts_data = cursor.fetchall()
+        post_list = []
 
-        for mypost in myposts:
-            if mypost[1] == 0:
+        for post in posts_data:
+            if post[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            postlist.append({"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                             "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                             "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                             "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                             "likes": mypost[11], "message": mypost[7], "parent": parent,
-                             "points": (mypost[11] - mypost[10]), "thread": mypost[12],
-                             "user": mypost[8]})
-        return_data = {"code": 0, "response": postlist}
+                parent = post[1]
+            post_list.append({
+                "date": post[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post[10],
+                "forum": post[9],
+                "id": post[0],
+                "isApproved": bool(post[2]),
+                "isDeleted": bool(post[5]),
+                "isEdited": bool(post[3]),
+                "isHighlighted": bool(post[13]),
+                "isSpam": bool(post[4]),
+                "likes": post[11],
+                "message": post[7],
+                "parent": parent,
+                "points": (post[11] - post[10]),
+                "thread": post[12],
+                "user": post[8]
+            })
+        code = 0
+        return_data = {"code": code, "response": post_list}
         return jsonify(return_data)
 
     else:
-        return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+        code = 1
+        err_msg = "thread not found"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
 @app.route('/db/api/thread/remove/', methods=['POST'])
 def thread_remove():
+    """Mark thread as removed"""
     try:
-        data = request.get_json()
-        thread = data['thread']
         db = db_connect()
         cursor = db.cursor()
-        query_str = "SELECT * FROM threads WHERE thread_id = %d" % (int(thread))
-        cursor.execute(query_str)
-        mythread = cursor.fetchone()
-        if mythread:
-            if not mythread[8]:
-                query_str = "update threads set isDeleted = True WHERE thread_id = %d" % (int(thread))
-                cursor.execute(query_str)
+        data = request.get_json()
+        thread = data['thread']
+        query_stmt = (
+                         "SELECT * "
+                         "FROM threads "
+                         "WHERE thread_id = %d"
+                     ) % (int(thread))
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if not thread_data[8]:
+                query_stmt = (
+                                 "UPDATE threads "
+                                 "SET isDeleted = True "
+                                 "WHERE thread_id = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
-                query_str = "update threads set posts = 0 WHERE thread_id = %d" % (int(thread))
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "UPDATE threads "
+                                 "SET posts = 0 "
+                                 "WHERE thread_id = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
-                query_str = "update posts set isDeleted = True WHERE thread = %d" % (int(thread))
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET isDeleted = True "
+                                 "WHERE thread = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
                 db.close()
-                return_data = {"code": 0, "response": {"thread": thread}}
+                code = 0
+                return_data = {
+                    "code": code, "response": {
+                        "thread": thread
+                    }
+                }
                 return jsonify(return_data)
             else:
-                query_str = "update threads set posts = 0 WHERE thread_id = %d" % (int(thread))
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "UPDATE threads "
+                                 "SET posts = 0 "
+                                 "WHERE thread_id = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
-                query_str = "update posts set isDeleted = True WHERE thread = %d" % (int(thread))
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET isDeleted = True "
+                                 "WHERE thread = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
                 db.close()
                 return_data = {"code": 0,
-                               "response": {"date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mythread[10],
-                                            "forum": mythread[1], "id": mythread[0], "isClosed": bool(mythread[3]),
-                                            "isDeleted": bool(mythread[8]),
-                                            "likes": mythread[9], "message": mythread[6],
-                                            "points": (mythread[9] - mythread[10]),
-                                            "posts": 0, "slug": mythread[7], "title": mythread[2], "user": mythread[4]}}
+                               "response": {
+                                   "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                                   "dislikes": thread_data[10],
+                                   "forum": thread_data[1],
+                                   "id": thread_data[0],
+                                   "isClosed": bool(thread_data[3]),
+                                   "isDeleted": bool(thread_data[8]),
+                                   "likes": thread_data[9],
+                                   "message": thread_data[6],
+                                   "points": (thread_data[9] - thread_data[10]),
+                                   "posts": 0,
+                                   "slug": thread_data[7],
+                                   "title": thread_data[2],
+                                   "user": thread_data[4]}}
                 return jsonify(return_data)
         else:
-            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            code = 1
+            err_msg = "not found"
+            return_data = {"code": code, "response": err_msg}
             return jsonify(return_data)
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid json"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
 @app.route('/db/api/thread/restore/', methods=['POST'])
 def thread_restore():
+    """Cancel removal"""
     try:
-        data = request.get_json()
-        thread = data['thread']
         db = db_connect()
         cursor = db.cursor()
-        query_str = "SELECT * FROM threads WHERE thread_id = %d" % (int(thread))
-        cursor.execute(query_str)
-        mythread = cursor.fetchone()
-        if mythread:
-            if mythread[8]:
-                query_str = "update threads set isDeleted = False WHERE thread_id = %d" % (int(thread))
-                cursor.execute(query_str)
+        data = request.get_json()
+        thread = data['thread']
+        query_stmt = (
+                         "SELECT * "
+                         "FROM threads "
+                         "WHERE thread_id = %d"
+                     ) % (int(thread))
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if thread_data[8]:
+                query_stmt = (
+                                 "UPDATE threads "
+                                 "SET isDeleted = False "
+                                 "WHERE thread_id = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
-                query_str = "update posts set isDeleted = False WHERE thread = %d" % (int(thread))
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET isDeleted = False "
+                                 "WHERE thread = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
-                query_str = "SELECT count(*) FROM posts WHERE  thread = %d" % (int(thread))
-                cursor.execute(query_str)
-                postcount = cursor.fetchone()
-                query_str = "update threads set posts = %d WHERE thread_id = %d" % (int(postcount[0]), int(thread))
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "SELECT count(*) "
+                                 "FROM posts "
+                                 "WHERE thread = %d"
+                             ) % (int(thread))
+                cursor.execute(query_stmt)
+                post_count = cursor.fetchone()
+                query_stmt = (
+                                 "UPDATE threads "
+                                 "SET posts = %d "
+                                 "WHERE thread_id = %d"
+                             ) % (int(post_count[0]), int(thread))
+                cursor.execute(query_stmt)
                 db.commit()
                 db.close()
-                return_data = {"code": 0, "response": {"thread": thread}}
+                code = 0
+                return_data = {
+                    "code": code,
+                    "response": {
+                        "thread": thread
+                    }
+                }
                 return jsonify(return_data)
             else:
-                return_data = {"code": 0,
-                               "response": {"date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mythread[10],
-                                            "forum": mythread[1], "id": mythread[0], "isClosed": bool(mythread[3]),
-                                            "isDeleted": bool(mythread[8]),
-                                            "likes": mythread[9], "message": mythread[6],
-                                            "points": (mythread[9] - mythread[10]),
-                                            "posts": mythread[11], "slug": mythread[7], "title": mythread[2],
-                                            "user": mythread[4]}}
-
+                code = 0
+                return_data = {
+                    "code": code,
+                    "response": {
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
+                        "message": thread_data[6],
+                        "points": (thread_data[9] - thread_data[10]),
+                        "posts": thread_data[11],
+                        "slug": thread_data[7],
+                        "title": thread_data[2],
+                        "user": thread_data[4]
+                    }
+                }
                 return jsonify(return_data)
 
-
         else:
-            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            code = 1
+            err_msg = "not found"
+            return_data = {"code": code, "response": err_msg}
             return jsonify(return_data)
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid json"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
