@@ -47,12 +47,22 @@ def user_create_helper(data, cursor):
                                               "isAnonymous": is_anonymous, "name": name, "username": username}}
     return return_data
 
+
 def fetch_args_user():
     user = request.args.get('user', False)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', 'desc')
     data = {'user': user, 'order': order, 'limit': limit, 'since': since}
+    return data
+
+
+def fetch_args_user_followers():
+    user = request.args.get('user', False)
+    limit = request.args.get('limit', False)
+    since_id = request.args.get('since_id', False)
+    order = request.args.get('order', 'desc')
+    data = {'user': user, 'order': order, 'limit': limit, 'since_id': since_id}
     return data
 
 
