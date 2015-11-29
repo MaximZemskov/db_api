@@ -90,3 +90,12 @@ def fetch_listthreads_forum_args():
     since = request.args.get('since', False)
     data = {'forum': forum, 'related': related, 'order': order, 'limit': limit, 'since': since}
     return data
+
+
+def fetch_listusers_forum_args():
+    forum = request.args.get('forum')
+    order = request.args.get('order', 'desc')
+    limit = request.args.get('limit', False)
+    since = request.args.get('since_id', False)
+    data = {'forum': forum, 'order': order, 'limit': limit, 'since': since}
+    return data
