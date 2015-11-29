@@ -2458,233 +2458,387 @@ def post_details():
 
 @app.route('/db/api/post/list/', methods=['GET'])
 def post_list():
+    """List posts"""
+    db = db_connect()
+    cursor = db.cursor()
     thread = request.args.get('thread', False)
     forum = request.args.get('forum', False)
-    if thread and forum:
-        return_data = {"code": 3, "response": "bad syntax"}
-        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', False)
-    db = db_connect()
-    cursor = db.cursor()
-    query_str = "SELECT * FROM posts WHERE "
+    if thread and forum:
+        code = 3
+        err_msg = "wrong request"
+        return_data = {"code": code, "response": err_msg}
+        return jsonify(return_data)
+    query_stmt = (
+        "SELECT * "
+        "FROM posts "
+        "WHERE "
+    )
     if thread:
-        query_str += "thread =  %d" % (int(thread))
+        query_stmt += "thread =  %d" % (int(thread))
     else:
-        query_str += "forum = '%s' " % (forum)
+        query_stmt += "forum = '%s' " % forum
     if since:
-        query_str += " AND date >= '%s' " % (since)
+        query_stmt += " AND date >= '%s' " % since
     if order:
-        query_str += " ORDER BY date %s " % (order)
+        query_stmt += " ORDER BY date %s " % order
     if limit:
-        query_str += " limit %d" % (int(limit))
+        query_stmt += " LIMIT %d" % (int(limit))
 
-    cursor.execute(query_str)
-    myposts = cursor.fetchall()
+    cursor.execute(query_stmt)
+    posts_data = cursor.fetchall()
 
-    returnposts = []
+    post_response = []
 
-    for mypost in myposts:
-        if mypost[1] == 0:
+    for post in posts_data:
+        if post[1] == 0:
             parent = None
         else:
-            parent = mypost[1]
-        returnposts.append({"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                            "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                            "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                            "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                            "likes": mypost[11], "message": mypost[7], "parent": parent,
-                            "points": (mypost[11] - mypost[10]), "thread": mypost[12], "user": mypost[8]})
-    return_data = {"code": 0, "response": returnposts}
+            parent = post[1]
+        post_response.append({
+            "date": post[6].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": post[10],
+            "forum": post[9],
+            "id": post[0],
+            "isApproved": bool(post[2]),
+            "isDeleted": bool(post[5]),
+            "isEdited": bool(post[3]),
+            "isHighlighted": bool(post[13]),
+            "isSpam": bool(post[4]),
+            "likes": post[11],
+            "message": post[7],
+            "parent": parent,
+            "points": (post[11] - post[10]),
+            "thread": post[12], "user": post[8]
+        })
+    code = 0
+    return_data = {"code": code, "response": post_response}
     return jsonify(return_data)
 
 
 @app.route('/db/api/post/remove/', methods=['POST'])
 def post_remove():
+    """Mark post as removed"""
+    db = db_connect()
+    cursor = db.cursor()
     try:
         data = request.get_json()
         post = data['post']
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid format"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
-    db = db_connect()
-    cursor = db.cursor()
-    query_str = "SELECT * FROM posts WHERE post_id = %d " % (int(post))
-    cursor.execute(query_str)
-    mypost = cursor.fetchone()
-    if mypost:
-        if mypost[5]:
-            if mypost[1] == 0:
+    query_stmt = (
+                     "SELECT * "
+                     "FROM posts "
+                     "WHERE post_id = %d "
+                 ) % (int(post))
+    cursor.execute(query_stmt)
+    post_data = cursor.fetchone()
+    if post_data:
+        if post_data[5]:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            returnpost = {"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                          "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                          "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                          "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                          "likes": mypost[11], "message": mypost[7], "parent": parent,
-                          "points": (mypost[11] - mypost[10]), "thread": mypost[12], "user": mypost[8]}
-            return_data = {"code": 0, "response": returnpost}
+                parent = post_data[1]
+            post_response = {
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post_data[10],
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": post_data[11],
+                "message": post_data[7],
+                "parent": parent,
+                "points": (post_data[11] - post_data[10]),
+                "thread": post_data[12],
+                "user": post_data[8]
+            }
+            code = 0
+            return_data = {"code": code, "response": post_response}
             return jsonify(return_data)
         else:
-            query_str = "update posts set isDeleted = True WHERE post_id = %d" % (post)
-            cursor.execute(query_str)
+            query_stmt = (
+                             "UPDATE posts "
+                             "SET isDeleted = True "
+                             "WHERE post_id = %d"
+                         ) % post
+            cursor.execute(query_stmt)
             db.commit()
-            query_str = "update threads set posts = posts - 1 WHERE thread_id = %d" % (mypost[12])
-            cursor.execute(query_str)
+            query_stmt = (
+                             "UPDATE threads "
+                             "SET posts = posts - 1 "
+                             "WHERE thread_id = %d"
+                         ) % (post_data[12])
+            cursor.execute(query_stmt)
             db.commit()
             db.close()
-            return_data = {"code": 0, "response": {"post": post}}
+            code = 0
+            return_data = {"code": code, "response": {"post": post}}
             return jsonify(return_data)
     else:
-        return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        code = 1
+        err_msg = "forum not found"
+        return_data = {"code": code, "response": err_msg}
         db.close()
         return jsonify(return_data)
 
 
 @app.route('/db/api/post/restore/', methods=['POST'])
 def post_restore():
+    """Cancel removal"""
+    db = db_connect()
+    cursor = db.cursor()
     try:
         data = request.get_json()
         post = data['post']
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid format"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
-    db = db_connect()
-    cursor = db.cursor()
-    query_str = "SELECT * FROM posts WHERE post_id = %d " % (int(post))
-    cursor.execute(query_str)
-    mypost = cursor.fetchone()
-    if mypost:
-        if not mypost[5]:
-            if mypost[1] == 0:
+    query_stmt = (
+                     "SELECT * "
+                     "FROM posts "
+                     "WHERE post_id = %d "
+                 ) % (int(post))
+    cursor.execute(query_stmt)
+    post_data = cursor.fetchone()
+    if post_data:
+        if not post_data[5]:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            returnpost = {"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                          "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                          "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                          "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                          "likes": mypost[11], "message": mypost[7], "parent": parent,
-                          "points": (mypost[11] - mypost[10]), "thread": mypost[12], "user": mypost[8]}
-            return_data = {"code": 0, "response": returnpost}
+                parent = post_data[1]
+            response_post = {
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post_data[10],
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": post_data[11],
+                "message": post_data[7],
+                "parent": parent,
+                "points": (post_data[11] - post_data[10]),
+                "thread": post_data[12],
+                "user": post_data[8]
+            }
+            code = 0
+            return_data = {"code": code, "response": response_post}
             return jsonify(return_data)
         else:
-            query_str = "update posts set isDeleted = False WHERE post_id = %d" % (post)
-            cursor.execute(query_str)
+            query_stmt = (
+                             "UPDATE posts "
+                             "SET isDeleted = False "
+                             "WHERE post_id = %d"
+                         ) % post
+            cursor.execute(query_stmt)
             db.commit()
-            query_str = "update threads set posts = posts + 1 WHERE thread_id = %d" % (mypost[12])
-            cursor.execute(query_str)
+            query_stmt = (
+                             "UPDATE threads "
+                             "SET posts = posts + 1 "
+                             "WHERE thread_id = %d"
+                         ) % (post_data[12])
+            cursor.execute(query_stmt)
             db.commit()
             db.close()
-            return_data = {"code": 0, "response": {"post": post}}
+            code = 0
+            return_data = {
+                "code": code,
+                "response": {
+                    "post": post
+                }
+            }
             return jsonify(return_data)
     else:
-        return_data = {"code": 1, "response": "POST NOT FOUND"}
+        code = 1
+        err_msg = "not found"
+        return_data = {"code": code, "response": err_msg}
         db.close()
         return jsonify(return_data)
 
 
 @app.route('/db/api/post/update/', methods=['POST'])
 def post_update():
+    """Edit post"""
     try:
+        db = db_connect()
+        cursor = db.cursor()
         data = request.get_json()
         post = data['post']
         message = data['message']
-        db = db_connect()
-        cursor = db.cursor()
-        query_str = "SELECT * FROM posts WHERE post_id = %d " % (int(post))
-        cursor.execute(query_str)
-        mypost = cursor.fetchone()
-        if mypost:
-            if not mypost[7] == message:
-                query_str = "update posts set message = '%s' WHERE post_id = %d" % (message, post)
-                cursor.execute(query_str)
+        query_stmt = (
+                         "SELECT * "
+                         "FROM posts "
+                         "WHERE post_id = %d "
+                     ) % (int(post))
+        cursor.execute(query_stmt)
+        post_data = cursor.fetchone()
+        if post_data:
+            if not post_data[7] == message:
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET message = '%s' "
+                                 "WHERE post_id = %d"
+                             ) % (message, post)
+                cursor.execute(query_stmt)
                 db.commit()
-                query_str = "update posts set isEdited = True WHERE post_id = %d" % (post)
-                cursor.execute(query_str)
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET isEdited = True "
+                                 "WHERE post_id = %d"
+                             ) % post
+                cursor.execute(query_stmt)
                 db.commit()
                 db.close()
-                if mypost[1] == 0:
+                if post_data[1] == 0:
                     parent = None
                 else:
-                    parent = mypost[1]
-                returnpost = {"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                              "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                              "isDeleted": bool(mypost[5]), "isEdited": True,
-                              "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                              "likes": mypost[11], "message": message, "parent": parent,
-                              "points": (mypost[11] - mypost[10]), "thread": mypost[12], "user": mypost[8]}
-                return_data = {"code": 0, "response": returnpost}
+                    parent = post_data[1]
+                post_response = {
+                    "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                    "dislikes": post_data[10],
+                    "forum": post_data[9],
+                    "id": post_data[0],
+                    "isApproved": bool(post_data[2]),
+                    "isDeleted": bool(post_data[5]),
+                    "isEdited": True,
+                    "isHighlighted": bool(post_data[13]),
+                    "isSpam": bool(post_data[4]),
+                    "likes": post_data[11],
+                    "message": message,
+                    "parent": parent,
+                    "points": (post_data[11] - post_data[10]),
+                    "thread": post_data[12],
+                    "user": post_data[8]
+                }
+                code = 0
+                return_data = {"code": code, "response": post_response}
                 return jsonify(return_data)
             else:
-                if mypost[1] == 0:
+                if post_data[1] == 0:
                     parent = None
                 else:
-                    parent = mypost[1]
-                returnpost = {"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                              "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                              "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                              "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                              "likes": mypost[11], "message": mypost[7], "parent": parent,
-                              "points": (mypost[11] - mypost[10]), "thread": mypost[12], "user": mypost[8]}
-                return_data = {"code": 0, "response": returnpost}
+                    parent = post_data[1]
+                post_response = {
+                    "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                    "dislikes": post_data[10],
+                    "forum": post_data[9],
+                    "id": post_data[0],
+                    "isApproved": bool(post_data[2]),
+                    "isDeleted": bool(post_data[5]),
+                    "isEdited": bool(post_data[3]),
+                    "isHighlighted": bool(post_data[13]),
+                    "isSpam": bool(post_data[4]),
+                    "likes": post_data[11],
+                    "message": post_data[7],
+                    "parent": parent,
+                    "points": (post_data[11] - post_data[10]),
+                    "thread": post_data[12],
+                    "user": post_data[8]
+                }
+                code = 0
+                return_data = {"code": code, "response": post_response}
                 return jsonify(return_data)
         else:
-            return_data = {"code": 1, "response": "POST NOT FOUND"}
+            code = 1
+            err_msg = "not found"
+            return_data = {"code": code, "response": err_msg}
             db.close()
             return jsonify(return_data)
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid format"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
 @app.route('/db/api/post/vote/', methods=['POST'])
 def post_vote():
+    """like/dislike post"""
     try:
+        db = db_connect()
+        cursor = db.cursor()
         data = request.get_json()
         vote = data['vote']
         post = data['post']
-        db = db_connect()
-        cursor = db.cursor()
-        query_str = "SELECT * FROM posts WHERE post_id = %d " % (int(post))
-        cursor.execute(query_str)
-        mypost = cursor.fetchone()
-        if mypost:
+        query_stmt = (
+                         "SELECT * "
+                         "FROM posts "
+                         "WHERE post_id = %d "
+                     ) % (int(post))
+        cursor.execute(query_stmt)
+        post_data = cursor.fetchone()
+        if post_data:
             if vote == 1:
-                query_str = "update posts set likes = likes + 1 WHERE post_id = %d" % (int(post))
-                mylikes = mypost[11] + 1
-                mydislikes = mypost[10]
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET likes = likes + 1 "
+                                 "WHERE post_id = %d"
+                             ) % (int(post))
+                likes = post_data[11] + 1
+                dislikes = post_data[10]
             elif vote == -1:
-                query_str = "update posts set dislikes = dislikes + 1 WHERE post_id = %d" % (int(post))
-                mylikes = mypost[11]
-                mydislikes = mypost[10] + 1
+                query_stmt = (
+                                 "UPDATE posts "
+                                 "SET dislikes = dislikes + 1 "
+                                 "WHERE post_id = %d"
+                             ) % (int(post))
+                likes = post_data[11]
+                dislikes = post_data[10] + 1
             else:
-                return_data = {"code": 3, "response": "invalid syntax"}
+                code = 3
+                err_msg = "invalid request"
+                return_data = {"code": code, "response": err_msg}
                 return jsonify(return_data)
-            cursor.execute(query_str)
+            cursor.execute(query_stmt)
             db.commit()
             db.close()
-            if mypost[1] == 0:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            returnpost = {"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mydislikes,
-                          "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                          "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                          "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                          "likes": mylikes, "message": mypost[7], "parent": parent,
-                          "points": (mylikes - mydislikes), "thread": mypost[12], "user": mypost[8]}
-            return_data = {"code": 0, "response": returnpost}
+                parent = post_data[1]
+            response_post = {
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": dislikes,
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": likes,
+                "message": post_data[7],
+                "parent": parent,
+                "points": (likes - dislikes),
+                "thread": post_data[12],
+                "user": post_data[8]
+            }
+            code = 0
+            return_data = {"code": code, "response": response_post}
             return jsonify(return_data)
         else:
-            return_data = {"code": 1, "response": "POST NOT FOUND"}
+            code = 1
+            err_msg = "not found"
+            return_data = {"code": code, "response": err_msg}
             db.close()
             return jsonify(return_data)
-
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid format"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
