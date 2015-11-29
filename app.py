@@ -531,199 +531,315 @@ def forum_listUsers():
 # USERS
 @app.route('/db/api/user/create/', methods=['POST'])
 def user_create():
+    """Create new user"""
     try:
+        db = db_connect()
+        cursor = db.cursor()
+        # get request data
         data = request.get_json()
         about = data['about']
         email = data['email']
         username = data['username']
         name = data['name']
         isAnonymous = data.get('isAnonymous', False)
-        query_str = """INSERT INTO users (username, about, name, email, isAnonymous) values
-        ('%s','%s','%s','%s',%d)""" % (username, about, name, email, isAnonymous)
-        db = db_connect()
-        cursor = db.cursor()
-        cursor.execute(query_str)
-        return_data = {"code": 0, "response": {"about": about, "email": email, "id": cursor.lastrowid,
-                                               "isAnonymous": isAnonymous, "name": name, "username": username}}
+        query_stmt = (
+                         "INSERT INTO users (username, about, name, email, isAnonymous) "
+                         "VALUES ('%s','%s','%s','%s',%d)"
+                     ) % (username, about, name, email, isAnonymous)
+        cursor.execute(query_stmt)
+        code = 0
+        return_data = {
+            "code": code, "response": {
+                "about": about,
+                "email": email,
+                "id": cursor.lastrowid,
+                "isAnonymous": isAnonymous,
+                "name": name,
+                "username": username
+            }
+        }
         db.commit()
         db.close()
         return jsonify(return_data)
     except IntegrityError, e:
         if e[0] == 1062:
-            return_data = {"code": 5, "response": "duplicate user"}
+            code = 5
+            err_msg = "user exist"
+            return_data = {"code": code, "response": err_msg}
             return jsonify(return_data)
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid request"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
 @app.route('/db/api/user/details/', methods=['GET'])
 def user_details():
-    user = request.args.get('user', '')
+    """Get user details"""
     db = db_connect()
     cursor = db.cursor()
-    query_str = "SELECT * FROM users WHERE email = '%s'" % (user)
-    if cursor.execute(query_str) == 0:
+    # fetch args
+    user = request.args.get('user', '')
+    query_stmt = (
+                     "SELECT * "
+                     "FROM users "
+                     "WHERE email = '%s'"
+                 ) % user
+    if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "USER NOT FOUND"}
         return jsonify(return_data)
     else:
-        myuser = cursor.fetchone()
-        query_str = "SELECT who_user FROM followers WHERE whom_user = '%s'" % (myuser[4])
-        cursor.execute(query_str)
-        myfollowers = cursor.fetchall()
-        query_str = "SELECT whom_user FROM followers WHERE who_user = '%s'" % (myuser[4])
-        cursor.execute(query_str)
-        myfollowing = cursor.fetchall()
-        query_str = "SELECT thread_id FROM subscriptions WHERE user = '%s'" % (myuser[4])
-        cursor.execute(query_str)
-        mysubs = cursor.fetchall()
-        if myuser[2] == 'None':
-            about = None
+        user_data = cursor.fetchone()
+        if user_data[1] == 'None':
+            users_username_field = None
         else:
-            about = myuser[2]
-        if myuser[1] == 'None':
-            username = None
+            users_username_field = user_data[1]
+        if user_data[2] == 'None':
+            users_about_field = None
         else:
-            username = myuser[1]
-        if myuser[3] == 'None':
-            name = None
+            users_about_field = user_data[2]
+        if user_data[3] == 'None':
+            users_name_field = None
         else:
-            name = myuser[3]
+            users_name_field = user_data[3]
 
-        userinfo = {"about": about, "email": myuser[4], "followers": [x[0] for x in myfollowers],
-                    "following": [x[0] for x in myfollowing],
-                    "id": myuser[0], "isAnonymous": bool(myuser[5]),
-                    "name": name, "subscriptions": [x[0] for x in mysubs],
-                    "username": username}
-        return_data = {"code": 0, "response": userinfo}
+        users_email_field = user_data[4]
+        users_isAnonymous_field = user_data[5]
+        query_stmt = (
+                         "SELECT who_user "
+                         "FROM followers "
+                         "WHERE whom_user = '%s'"
+                     ) % users_email_field
+        cursor.execute(query_stmt)
+        followers_data = cursor.fetchall()
+        query_stmt = (
+                         "SELECT whom_user "
+                         "FROM followers "
+                         "WHERE who_user = '%s'"
+                     ) % users_email_field
+        cursor.execute(query_stmt)
+        following_data = cursor.fetchall()
+        query_stmt = (
+                         "SELECT thread_id "
+                         "FROM subscriptions "
+                         "WHERE user = '%s'"
+                     ) % users_email_field
+        cursor.execute(query_stmt)
+        subscriptions_data = cursor.fetchall()
+
+        user_info = {
+            "about": users_about_field,
+            "email": users_email_field,
+            "followers": [x[0] for x in followers_data],
+            "following": [x[0] for x in following_data],
+            "id": user_data[0],
+            "isAnonymous": bool(users_isAnonymous_field),
+            "name": users_name_field,
+            "subscriptions": [x[0] for x in subscriptions_data],
+            "username": users_username_field
+        }
+        code = 0
+        return_data = {"code": code, "response": user_info}
         return jsonify(return_data)
 
 
 @app.route('/db/api/user/listPosts/', methods=['GET'])
 def user_listPosts():
-    user = request.args.get('user', False)
-    if not user:
-        return_data = {"code": 3, "response": "bad syntax"}
-        return jsonify(return_data)
-    limit = request.args.get('limit', False)
-    since = request.args.get('since', False)
-    order = request.args.get('order', 'desc')
+    """Get user details"""
     db = db_connect()
     cursor = db.cursor()
-    query_str = "SELECT * FROM users WHERE email = '%s'" % (user)
+    args = fetch_args_user()
+    if not args['user']:
+        code = 3
+        err_msg = "bad shit"
+        return_data = {"code": code, "response": err_msg}
+        return jsonify(return_data)
+    query_str = (
+                    "SELECT * "
+                    "FROM users "
+                    "WHERE email = '%s'"
+                ) % args['user']
     cursor.execute(query_str)
-    myuser = cursor.fetchone()
-    if myuser:
-        query_str = "SELECT * FROM posts WHERE user = '%s'" % (user)
-        if since:
-            query_str += " AND date >= '%s' " % (since)
-        query_str += " ORDER BY date %s " % (order)
-        if limit:
-            query_str += " limit %d" % (int(limit))
+    user_data = cursor.fetchone()
+    if user_data:
+        query_str = (
+                        "SELECT * "
+                        "FROM posts "
+                        "WHERE user = '%s'"
+                    ) % args['user']
+        if args['since']:
+            query_str += " AND date >= '%s' " % args['since']
+        query_str += " ORDER BY date %s " % args['order']
+        if args['limit']:
+            query_str += " LIMIT %d" % (int(args['limit']))
         cursor.execute(query_str)
-        myposts = cursor.fetchall()
-        postlist = []
-
-        for mypost in myposts:
-            if mypost[1] == 0:
+        posts_data = cursor.fetchall()
+        posts_list = []
+        for post in posts_data:
+            if post[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            postlist.append({"date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"), "dislikes": mypost[10],
-                             "forum": mypost[9], "id": mypost[0], "isApproved": bool(mypost[2]),
-                             "isDeleted": bool(mypost[5]), "isEdited": bool(mypost[3]),
-                             "isHighlighted": bool(mypost[13]), "isSpam": bool(mypost[4]),
-                             "likes": mypost[11], "message": mypost[7], "parent": parent,
-                             "points": (mypost[11] - mypost[10]), "thread": mypost[12],
-                             "user": mypost[8]})
-        return_data = {"code": 0, "response": postlist}
+                parent = post[1]
+            posts_list.append({
+                "date": post[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post[10],
+                "forum": post[9],
+                "id": post[0],
+                "isApproved": bool(post[2]),
+                "isDeleted": bool(post[5]),
+                "isEdited": bool(post[3]),
+                "isHighlighted": bool(post[13]),
+                "isSpam": bool(post[4]),
+                "likes": post[11],
+                "message": post[7],
+                "parent": parent,
+                "points": (post[11] - post[10]),
+                "thread": post[12],
+                "user": post[8]
+            })
+        code = 0
+        return_data = {"code": code, "response": posts_list}
         return jsonify(return_data)
 
     else:
-        return_data = {"code": 1, "response": "USER NOT FOUND"}
+        code = 1
+        err_msg = "not found"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
 @app.route('/db/api/user/updateProfile/', methods=['POST'])
 def user_updateProfile():
+    """Update profile"""
     try:
+        db = db_connect()
+        cursor = db.cursor()
         data = request.get_json()
         user = data['user']
         about = data['about']
         name = data['name']
-        db = db_connect()
-        cursor = db.cursor()
-        query_str = "SELECT * FROM users WHERE email = '%s' " % (user)
+        query_str = (
+                        "SELECT * "
+                        "FROM users "
+                        "WHERE email = '%s' "
+                    ) % user
         cursor.execute(query_str)
-        myuser = cursor.fetchone()
-        if myuser:
-            if (myuser[2] != about) or (myuser[3] != name):
-                query_str = "update users set about = '%s' WHERE email = '%s'" % (about, user)
+        user_data = cursor.fetchone()
+        if user_data:
+            if (user_data[2] != about) or (user_data[3] != name):
+                query_str = (
+                                "UPDATE users "
+                                "SET about = '%s' "
+                                "WHERE email = '%s'"
+                            ) % (about, user)
                 cursor.execute(query_str)
-                query_str = "update users set name = '%s' WHERE email = '%s'" % (name, user)
+                query_str = (
+                                "UPDATE users "
+                                "SET name = '%s' "
+                                "WHERE email = '%s'"
+                            ) % (name, user)
                 cursor.execute(query_str)
                 db.commit()
-                query_str = "SELECT who_user FROM followers WHERE whom_user = '%s'" % (myuser[4])
+                query_str = (
+                                "SELECT who_user "
+                                "FROM followers "
+                                "WHERE whom_user = '%s'"
+                            ) % (user_data[4])
                 cursor.execute(query_str)
-                myfollowers = cursor.fetchall()
-                query_str = "SELECT whom_user FROM followers WHERE who_user = '%s'" % (myuser[4])
+                followers_data = cursor.fetchall()
+                query_str = (
+                                "SELECT whom_user "
+                                "FROM followers "
+                                "WHERE who_user = '%s'"
+                            ) % (user_data[4])
                 cursor.execute(query_str)
-                myfollowing = cursor.fetchall()
-                query_str = "SELECT thread_id FROM subscriptions WHERE user = '%s'" % (myuser[4])
+                following_data = cursor.fetchall()
+                query_str = (
+                                "SELECT thread_id "
+                                "FROM subscriptions "
+                                "WHERE user = '%s'"
+                            ) % (user_data[4])
                 cursor.execute(query_str)
-                mysubs = cursor.fetchall()
+                subscriptions_data = cursor.fetchall()
                 if about == 'None':
                     about = None
-                if myuser[1] == 'None':
+                if user_data[1] == 'None':
                     username = None
                 else:
-                    username = myuser[1]
+                    username = user_data[1]
                 if name == 'None':
                     name = None
-                userinfo = {"about": about, "email": myuser[4], "followers": [x[0] for x in myfollowers],
-                            "following": [x[0] for x in myfollowing],
-                            "id": myuser[0], "isAnonymous": bool(myuser[5]),
-                            "name": name, "subscriptions": [x[0] for x in mysubs],
-                            "username": username}
-                return_data = {"code": 0, "response": userinfo}
+                user_info = {
+                    "about": about,
+                    "email": user_data[4],
+                    "followers": [x[0] for x in followers_data],
+                    "following": [x[0] for x in following_data],
+                    "id": user_data[0],
+                    "isAnonymous": bool(user_data[5]),
+                    "name": name,
+                    "subscriptions": [x[0] for x in subscriptions_data],
+                    "username": username
+                }
+                return_data = {"code": 0, "response": user_info}
                 return jsonify(return_data)
             else:
-
-                query_str = "SELECT who_user FROM followers WHERE whom_user = '%s'" % (myuser[4])
+                query_str = (
+                                "SELECT who_user "
+                                "FROM followers "
+                                "WHERE whom_user = '%s'"
+                            ) % (user_data[4])
                 cursor.execute(query_str)
-                myfollowers = cursor.fetchall()
-                query_str = "SELECT whom_user FROM followers WHERE who_user = '%s'" % (myuser[4])
+                followers_data = cursor.fetchall()
+                query_str = (
+                                "SELECT whom_user "
+                                "FROM followers "
+                                "WHERE who_user = '%s'"
+                            ) % (user_data[4])
                 cursor.execute(query_str)
-                myfollowing = cursor.fetchall()
-                query_str = "SELECT thread_id FROM subscriptions WHERE user = '%s'" % (myuser[4])
+                following_data = cursor.fetchall()
+                query_str = (
+                                "SELECT thread_id "
+                                "FROM subscriptions "
+                                "WHERE user = '%s'"
+                            ) % (user_data[4])
                 cursor.execute(query_str)
-                mysubs = cursor.fetchall()
-                if myuser[2] == 'None':
+                subscriptions_data = cursor.fetchall()
+                if user_data[2] == 'None':
                     about = None
                 else:
-                    about = myuser[2]
-                if myuser[1] == 'None':
+                    about = user_data[2]
+                if user_data[1] == 'None':
                     username = None
                 else:
-                    username = myuser[1]
-                if myuser[3] == 'None':
+                    username = user_data[1]
+                if user_data[3] == 'None':
                     name = None
                 else:
-                    name = myuser[3]
+                    name = user_data[3]
 
-                userinfo = {"about": about, "email": myuser[4], "followers": [x[0] for x in myfollowers],
-                            "following": [x[0] for x in myfollowing],
-                            "id": myuser[0], "isAnonymous": bool(myuser[5]),
-                            "name": name, "subscriptions": [x[0] for x in mysubs],
-                            "username": username}
-                return_data = {"code": 0, "response": userinfo}
+                user_info = {
+                    "about": about,
+                    "email": user_data[4],
+                    "followers": [x[0] for x in followers_data],
+                    "following": [x[0] for x in following_data],
+                    "id": user_data[0],
+                    "isAnonymous": bool(user_data[5]),
+                    "name": name,
+                    "subscriptions": [x[0] for x in subscriptions_data],
+                    "username": username}
+                return_data = {"code": 0, "response": user_info}
                 return jsonify(return_data)
         else:
-            return_data = {"code": 1, "response": "USER NOT FOUND"}
+            code = 1
+            err_msg = "not found"
+            return_data = {"code": code, "response": err_msg}
             db.close()
             return jsonify(return_data)
     except KeyError:
-        return_data = {"code": 2, "response": "invalid json format"}
+        code = 2
+        err_msg = "invalid"
+        return_data = {"code": code, "response": err_msg}
         return jsonify(return_data)
 
 
