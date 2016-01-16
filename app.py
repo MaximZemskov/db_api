@@ -464,84 +464,147 @@ def forum_listThreads():
         threads_list.append(return_data)
     return ujson.dumps({"code": 0, "response": threads_list})
 
-
 @app.route('/db/api/forum/listUsers/', methods=['GET'])
 def forum_listUsers():
-    """Get user with posts on this forum"""
-    args = fetch_listusers_forum_args()
+    forum = request.args.get('forum')
+    if not forum:
+        returnData = {"code": 3, "response": "bad syntax"}
+        return jsonify(returnData)
+    order = request.args.get('order', 'desc')
+    limit = request.args.get('limit', False)
+    since = request.args.get('since_id', False)
     db = db_connect()
     cursor = db.cursor()
-    query_stmt = (
-                     "SELECT * "
-                     "FROM forums "
-                     "WHERE short_name = '%s'"
-                 ) % args['forum']
-    if cursor.execute(query_stmt) == 0:
-        code = 1
-        err_msg = "forum not found"
-        return_data = {"code": code, "response": err_msg}
-        return ujson.dumps(return_data)
-    query_stmt = (
-                     "SELECT DISTINCT email ,user_id, username, about,name, isAnonymous, IF(name = 'None', 0, 1) AS qwer "
-                     "FROM posts INNER JOIN users "
-                     "on posts.user = users.email "
-                     "WHERE forum = '%s' "
-                 ) % args['forum']
-    if args['since']:
-        query_stmt += " AND user_id >= %d " % (int(args['since']))
-    query_stmt += " ORDER BY qwer %s, name %s " % (args['order'], args['order'])
-    if args['limit']:
-        query_stmt += " LIMIT %d" % (int(args['limit']))
-    cursor.execute(query_stmt)
-    users_data = cursor.fetchall()
-    users_list = []
-    for user in users_data:
-        if user[2] == 'None':
-            username = None
-        else:
-            username = user[2]
-        if user[3] == 'None':
+    q = "SELECT * FROM forums where short_name = '%s'" % (forum)
+    if cursor.execute(q) == 0:
+        returnData = {"code": 1, "response": "FORUM NOT FOUND"}
+        return  jsonify(returnData)
+
+
+
+
+    q =  """SELECT * FROM users
+        WHERE email IN (SELECT DISTINCT user FROM posts WHERE forum = '%s') """ % (forum)
+    if since:
+        q += " and user_id >= %d " % (int(since))
+    q += " order by  name %s " % (order)
+    if limit:
+        q += " limit %d" % (int(limit))
+
+
+
+    cursor.execute(q)
+    myusers = cursor.fetchall()
+
+
+
+    ListUsers = []
+    for myuser in myusers:
+        if myuser[2] == 'None':
             about = None
         else:
-            about = user[3]
-        if user[4] == 'None':
+            about = myuser[2]
+        if myuser[1] == 'None':
+            username = None
+        else:
+            username = myuser[1]
+        if myuser[3] == 'None':
             name = None
         else:
-            name = user[4]
-        query_stmt = (
-                         "SELECT who_user "
-                         "FROM followers "
-                         "WHERE whom_user = '%s'"
-                     ) % (user[0])
-        cursor.execute(query_stmt)
-        followers_data = cursor.fetchall()
-        query_stmt = (
-                         "SELECT whom_user "
-                         "FROM followers "
-                         "WHERE who_user = '%s'"
-                     ) % (user[0])
-        cursor.execute(query_stmt)
-        following_data = cursor.fetchall()
-        query_stmt = (
-                         "SELECT thread_id "
-                         "FROM subscriptions "
-                         "WHERE user = '%s'"
-                     ) % (user[0])
-        cursor.execute(query_stmt)
-        subscriptions_data = cursor.fetchall()
-        user_info = {
-            "about": about,
-            "email": user[0],
-            "followers": [x[0] for x in followers_data],
-            "following": [x[0] for x in following_data],
-            "id": user[1],
-            "isAnonymous": bool(user[5]),
-            "name": name,
-            "subscriptions": [x[0] for x in subscriptions_data],
-            "username": username
-        }
-        users_list.append(user_info)
-    return ujson.dumps({"code": 0, "response": users_list})
+            name = myuser[3]
+        q = "Select who_user from followers where whom_user = '%s'" % (myuser[4])
+        cursor.execute(q)
+        myfollowers = cursor.fetchall()
+        q = "Select whom_user from followers where who_user = '%s'" % (myuser[4])
+        cursor.execute(q)
+        myfollowing = cursor.fetchall()
+        q = "Select thread_id from subscriptions where user = '%s'" % (myuser[4])
+        cursor.execute(q)
+        mysubs = cursor.fetchall()
+        userinfo = {"about": about, "email": myuser[4], "followers":  [x[0] for x in myfollowers],
+                        "following": [x[0] for x in myfollowing],
+                        "id": myuser[0], "isAnonymous": bool(myuser[5]),
+                        "name": name, "subscriptions": [x[0] for x in mysubs],
+                        "username": username}
+        ListUsers.append(userinfo)
+    return jsonify({"code": 0, "response": ListUsers})
+#
+# @app.route('/db/api/forum/listUsers/', methods=['GET'])
+# def forum_listUsers():
+#     """Get user with posts on this forum"""
+#     args = fetch_listusers_forum_args()
+#     db = db_connect()
+#     cursor = db.cursor()
+#     query_stmt = (
+#                      "SELECT * "
+#                      "FROM forums "
+#                      "WHERE short_name = '%s'"
+#                  ) % args['forum']
+#     if cursor.execute(query_stmt) == 0:
+#         code = 1
+#         err_msg = "forum not found"
+#         return_data = {"code": code, "response": err_msg}
+#         return ujson.dumps(return_data)
+#     query_stmt = (
+#                      "SELECT * "
+#                      "FROM users "
+#                      "WHERE email IN (SELECT DISTINCT user FROM posts WHERE forum = '%s')"
+#                  ) % args['forum']
+#     if args['since']:
+#         query_stmt += " AND user_id >= %d " % (int(args['since']))
+#     query_stmt += " ORDER BY name %s " % (args['order'])
+#     if args['limit']:
+#         query_stmt += " LIMIT %d" % (int(args['limit']))
+#     cursor.execute(query_stmt)
+#     users_data = cursor.fetchall()
+#     users_list = []
+#     for user in users_data:
+#         if user[1] == 'None':
+#             username = None
+#         else:
+#             username = user[1]
+#         if user[2] == 'None':
+#             about = None
+#         else:
+#             about = user[2]
+#         if user[3] == 'None':
+#             name = None
+#         else:
+#             name = user[3]
+#         query_stmt = (
+#                          "SELECT who_user "
+#                          "FROM followers "
+#                          "WHERE whom_user = '%s'"
+#                      ) % (user[4])
+#         cursor.execute(query_stmt)
+#         followers_data = cursor.fetchall()
+#         query_stmt = (
+#                          "SELECT whom_user "
+#                          "FROM followers "
+#                          "WHERE who_user = '%s'"
+#                      ) % (user[4])
+#         cursor.execute(query_stmt)
+#         following_data = cursor.fetchall()
+#         query_stmt = (
+#                          "SELECT thread_id "
+#                          "FROM subscriptions "
+#                          "WHERE user = '%s'"
+#                      ) % (user[4])
+#         cursor.execute(query_stmt)
+#         subscriptions_data = cursor.fetchall()
+#         user_info = {
+#             "about": about,
+#             "email": user[0],
+#             "followers": [x[0] for x in followers_data],
+#             "following": [x[0] for x in following_data],
+#             "id": user[1],
+#             "isAnonymous": bool(user[5]),
+#             "name": name,
+#             "subscriptions": [x[0] for x in subscriptions_data],
+#             "username": username
+#         }
+#         users_list.append(user_info)
+#     return ujson.dumps({"code": 0, "response": users_list})
 
 
 # POST
