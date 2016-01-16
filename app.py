@@ -9,10 +9,10 @@ app = Flask(__name__)
 
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 mysql = MySQL()
-app.config['MYSQL_DATABASE_USER'] = 'db_api'
-app.config['MYSQL_DATABASE_DB'] = 'db'
+app.config['MYSQL_DATABASE_USER'] = 'db_api_user'
+app.config['MYSQL_DATABASE_DB'] = 'db_func_test'
 app.config['MYSQL_DATABASE_HOST'] = 'localhost'
-app.config['MYSQL_DATABASE_PASSWORD'] = 'secret'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'passwd'
 mysql.init_app(app)
 connection = mysql.connect()
 

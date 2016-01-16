@@ -3,7 +3,7 @@ from flask import jsonify, request
 
 
 def db_connect():
-    returned_data = MySQLdb.connect(host='localhost', user="db_api", passwd="secret", db="db", charset='utf8')
+    returned_data = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test", charset='utf8')
     return returned_data
 
 
