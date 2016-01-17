@@ -61,11 +61,11 @@ def forum_create():
         name = data['name']
         short_name = data['short_name']
         user = data['user']
-        q = """
+        query_stmt = """
             INSERT INTO forums (name,short_name,user)
             VALUES ('%s','%s','%s')
             """ % (name, short_name, user)
-        cursor.execute(q)
+        cursor.execute(query_stmt)
         return_data = {
             "code": 0,
             "response": {
@@ -80,13 +80,13 @@ def forum_create():
     except IntegrityError, e:
         if e[0] == 1062:
             if 'short_name_UNIQUE' in e[1]:
-                q = """
+                query_stmt = """
                     SELECT *
                     FROM forums
                     WHERE short_name = '%s'
                     """ % short_name
             else:
-                q = """
+                query_stmt = """
                     SELECT *
                     FROM forums
                     WHERE name = '%s'
@@ -94,15 +94,15 @@ def forum_create():
             db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test",
                                  charset='utf8')
             cursor = db.cursor()
-            cursor.execute(q)
-            myforum = cursor.fetchone()
+            cursor.execute(query_stmt)
+            forum_data = cursor.fetchone()
             return_data = {
                 "code": 0,
                 "response": {
-                    "id": myforum[3],
-                    "name": myforum[0],
-                    "short_name": myforum[1],
-                    "user": myforum[2]
+                    "id": forum_data[3],
+                    "name": forum_data[0],
+                    "short_name": forum_data[1],
+                    "user": forum_data[2]
                 }
             }
             return jsonify(return_data)
@@ -118,76 +118,76 @@ def forum_details():
     cursor = db.cursor()
     forum = request.args.get('forum', '')
     related = request.args.getlist('related')
-    q = """
+    query_stmt = """
         SELECT *
         FROM forums
         WHERE short_name = '%s'
         """ % forum
-    if cursor.execute(q) == 0:
+    if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
         return jsonify(return_data)
-    myforum = cursor.fetchone()
+    forum_data = cursor.fetchone()
     if 'user' in related:
-        q = """
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
-            """ % myforum[2]
-        cursor.execute(q)
-        myuser = cursor.fetchone()
-        if myuser[2] == 'None':
+            """ % forum_data[2]
+        cursor.execute(query_stmt)
+        user_data = cursor.fetchone()
+        if user_data[2] == 'None':
             about = None
         else:
-            about = myuser[2]
-        if myuser[1] == 'None':
+            about = user_data[2]
+        if user_data[1] == 'None':
             username = None
         else:
-            username = myuser[1]
-        if myuser[3] == 'None':
+            username = user_data[1]
+        if user_data[3] == 'None':
             name = None
         else:
-            name = myuser[3]
-        q = """
+            name = user_data[3]
+        query_stmt = """
             SELECT who_user
             FROM followers
             WHERE whom_user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        myfollowers = cursor.fetchall()
-        q = """
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        followers = cursor.fetchall()
+        query_stmt = """
             SELECT whom_user
             FROM followers
             WHERE who_user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        myfollowing = cursor.fetchall()
-        q = """
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        following = cursor.fetchall()
+        query_stmt = """
             SELECT thread_id
             FROM subscriptions
             WHERE user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        mysubs = cursor.fetchall()
-        userinfo = {
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        subs = cursor.fetchall()
+        user_info = {
             "about": about,
-            "email": myuser[4],
-            "followers": [x[0] for x in myfollowers],
-            "following": [x[0] for x in myfollowing],
-            "id": myuser[0],
-            "isAnonymous": bool(myuser[5]),
+            "email": user_data[4],
+            "followers": [x[0] for x in followers],
+            "following": [x[0] for x in following],
+            "id": user_data[0],
+            "isAnonymous": bool(user_data[5]),
             "name": name,
-            "subscriptions": [x[0] for x in mysubs],
+            "subscriptions": [x[0] for x in subs],
             "username": username
         }
     else:
-        userinfo = myforum[2]
+        user_info = forum_data[2]
     return_data = {
         "code": 0,
         "response": {
-            "id": myforum[3],
-            "name": myforum[0],
-            "short_name": myforum[1],
-            "user": userinfo
+            "id": forum_data[3],
+            "name": forum_data[0],
+            "short_name": forum_data[1],
+            "user": user_info
         }
     }
     return jsonify(return_data)
@@ -206,140 +206,140 @@ def forum_listPosts():
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
-    q = """
+    query_stmt = """
         SELECT *
         FROM forums
         WHERE short_name = '%s'
         """ % forum
-    if cursor.execute(q) == 0:
+    if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
         return jsonify(return_data)
-    myforum = cursor.fetchone()
-    q = """
+    forum_data = cursor.fetchone()
+    query_stmt = """
         SELECT *
         FROM posts
         WHERE forum = '%s'
         """ % forum
     if since:
-        q += " AND date >= '%s' " % since
-    q += " ORDER BY  date %s " % order
+        query_stmt += " AND date >= '%s' " % since
+    query_stmt += " ORDER BY  date %s " % order
     if limit:
-        q += " LIMIT %d" % (int(limit))
-    cursor.execute(q)
-    myposts = cursor.fetchall()
+        query_stmt += " LIMIT %d" % (int(limit))
+    cursor.execute(query_stmt)
+    post_datas = cursor.fetchall()
     if 'forum' in related:
         related.remove('forum')
         foruminfo = {
-            "id": myforum[3],
-            "name": myforum[0],
-            "short_name": myforum[1],
-            "user": myforum[2]
+            "id": forum_data[3],
+            "name": forum_data[0],
+            "short_name": forum_data[1],
+            "user": forum_data[2]
         }
     else:
         foruminfo = forum
     ListPosts = []
-    for mypost in myposts:
+    for post_data in post_datas:
         if 'user' in related:
-            q = """
+            query_stmt = """
                 SELECT *
                 FROM users
                 WHERE email = '%s'
-                """ % mypost[8]
-            cursor.execute(q)
-            myuser = cursor.fetchone()
-            if myuser[2] == 'None':
+                """ % post_data[8]
+            cursor.execute(query_stmt)
+            user_data = cursor.fetchone()
+            if user_data[2] == 'None':
                 about = None
             else:
-                about = myuser[2]
-            if myuser[1] == 'None':
+                about = user_data[2]
+            if user_data[1] == 'None':
                 username = None
             else:
-                username = myuser[1]
-            if myuser[3] == 'None':
+                username = user_data[1]
+            if user_data[3] == 'None':
                 name = None
             else:
-                name = myuser[3]
-            q = """
+                name = user_data[3]
+            query_stmt = """
                 SELECT who_user
                 FROM followers
                 WHERE whom_user = '%s'
-                """ % myuser[4]
-            cursor.execute(q)
-            myfollowers = cursor.fetchall()
-            q = """
+                """ % user_data[4]
+            cursor.execute(query_stmt)
+            followers = cursor.fetchall()
+            query_stmt = """
                 SELECT whom_user
                 FROM followers
                 WHERE who_user = '%s'
-                """ % myuser[4]
-            cursor.execute(q)
-            myfollowing = cursor.fetchall()
-            q = """
+                """ % user_data[4]
+            cursor.execute(query_stmt)
+            following = cursor.fetchall()
+            query_stmt = """
                 SELECT thread_id
                 FROM subscriptions
                 WHERE user = '%s'
-                """ % myuser[4]
-            cursor.execute(q)
-            mysubs = cursor.fetchall()
-            userinfo = {
+                """ % user_data[4]
+            cursor.execute(query_stmt)
+            subs = cursor.fetchall()
+            user_info = {
                 "about": about,
-                "email": myuser[4],
-                "followers": [x[0] for x in myfollowers],
-                "following": [x[0] for x in myfollowing],
-                "id": myuser[0],
-                "isAnonymous": bool(myuser[5]),
+                "email": user_data[4],
+                "followers": [x[0] for x in followers],
+                "following": [x[0] for x in following],
+                "id": user_data[0],
+                "isAnonymous": bool(user_data[5]),
                 "name": name,
-                "subscriptions": [x[0] for x in mysubs],
+                "subscriptions": [x[0] for x in subs],
                 "username": username
             }
         else:
-            userinfo = mypost[8]
+            user_info = post_data[8]
 
         if 'thread' in related:
-            q = """
+            query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = '%s'
-            """ % mypost[12]
-            cursor.execute(q)
-            mythread = cursor.fetchone()
-            threadinfo = {
-                "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                "dislikes": mythread[10],
-                "forum": mythread[1],
-                "id": mythread[0],
-                "isClosed": bool(mythread[3]),
-                "isDeleted": bool(mythread[8]),
-                "likes": mythread[9],
-                "message": mythread[6],
-                "points": (mythread[9] - mythread[10]),
-                "posts": mythread[11],
-                "slug": mythread[7],
-                "title": mythread[2],
-                "user": mythread[4]
+            """ % post_data[12]
+            cursor.execute(query_stmt)
+            thread_data = cursor.fetchone()
+            thread_info = {
+                "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": thread_data[10],
+                "forum": thread_data[1],
+                "id": thread_data[0],
+                "isClosed": bool(thread_data[3]),
+                "isDeleted": bool(thread_data[8]),
+                "likes": thread_data[9],
+                "message": thread_data[6],
+                "points": (thread_data[9] - thread_data[10]),
+                "posts": thread_data[11],
+                "slug": thread_data[7],
+                "title": thread_data[2],
+                "user": thread_data[4]
             }
         else:
-            threadinfo = mypost[12]
-        if mypost[1] == 0:
+            thread_info = post_data[12]
+        if post_data[1] == 0:
             parent = None
         else:
-            parent = mypost[1]
+            parent = post_data[1]
 
         return_data = {
-            "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mypost[10],
+            "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": post_data[10],
             "forum": foruminfo,
-            "id": mypost[0],
-            "isApproved": bool(mypost[2]),
-            "isDeleted": bool(mypost[5]),
-            "isEdited": bool(mypost[3]),
-            "isHighlighted": bool(mypost[13]),
-            "isSpam": bool(mypost[4]),
-            "likes": mypost[11],
-            "message": mypost[7],
+            "id": post_data[0],
+            "isApproved": bool(post_data[2]),
+            "isDeleted": bool(post_data[5]),
+            "isEdited": bool(post_data[3]),
+            "isHighlighted": bool(post_data[13]),
+            "isSpam": bool(post_data[4]),
+            "likes": post_data[11],
+            "message": post_data[7],
             "parent": parent,
-            "points": (mypost[11] - mypost[10]),
-            "thread": threadinfo,
-            "user": userinfo
+            "points": (post_data[11] - post_data[10]),
+            "thread": thread_info,
+            "user": user_info
         }
         ListPosts.append(return_data)
     return jsonify({"code": 0, "response": ListPosts})
@@ -358,110 +358,110 @@ def forum_listThreads():
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
-    q = """
+    query_stmt = """
         SELECT *
         FROM forums
         WHERE short_name = '%s'
         """ % forum
-    if cursor.execute(q) == 0:
+    if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
         return jsonify(return_data)
-    myforum = cursor.fetchone()
-    q = """
+    forum_data = cursor.fetchone()
+    query_stmt = """
         SELECT *
         FROM threads
         WHERE forum = '%s'
         """ % forum
     if since:
-        q += " AND date >= '%s' " % since
-    q += " ORDER BY  date %s " % order
+        query_stmt += " AND date >= '%s' " % since
+    query_stmt += " ORDER BY  date %s " % order
     if limit:
-        q += " LIMIT %d" % (int(limit))
-    cursor.execute(q)
-    mythreads = cursor.fetchall()
+        query_stmt += " LIMIT %d" % (int(limit))
+    cursor.execute(query_stmt)
+    thread_datas = cursor.fetchall()
     if 'forum' in related:
         foruminfo = {
-            "id": myforum[3],
-            "name": myforum[0],
-            "short_name": myforum[1],
-            "user": myforum[2]
+            "id": forum_data[3],
+            "name": forum_data[0],
+            "short_name": forum_data[1],
+            "user": forum_data[2]
         }
     else:
         foruminfo = forum
-    ListThreads = []
-    for mythread in mythreads:
+    threads_list = []
+    for thread_data in thread_datas:
         if 'user' in related:
-            q = """
+            query_stmt = """
                 SELECT *
                 FROM users
                 WHERE email = '%s'
-                """ % mythread[4]
-            cursor.execute(q)
-            myuser = cursor.fetchone()
-            if myuser[2] == 'None':
+                """ % thread_data[4]
+            cursor.execute(query_stmt)
+            user_data = cursor.fetchone()
+            if user_data[2] == 'None':
                 about = None
             else:
-                about = myuser[2]
-            if myuser[1] == 'None':
+                about = user_data[2]
+            if user_data[1] == 'None':
                 username = None
             else:
-                username = myuser[1]
-            if myuser[3] == 'None':
+                username = user_data[1]
+            if user_data[3] == 'None':
                 name = None
             else:
-                name = myuser[3]
-            q = """
+                name = user_data[3]
+            query_stmt = """
                 SELECT who_user
                 FROM followers
                 WHERE whom_user = '%s'
-                """ % myuser[4]
-            cursor.execute(q)
-            myfollowers = cursor.fetchall()
-            q = """
+                """ % user_data[4]
+            cursor.execute(query_stmt)
+            followers = cursor.fetchall()
+            query_stmt = """
                 SELECT whom_user
                 FROM followers
                 WHERE who_user = '%s'
-                """ % myuser[4]
-            cursor.execute(q)
-            myfollowing = cursor.fetchall()
-            q = """
+                """ % user_data[4]
+            cursor.execute(query_stmt)
+            following = cursor.fetchall()
+            query_stmt = """
                 SELECT thread_id
                 FROM subscriptions
                 WHERE user = '%s'
-                """ % myuser[4]
-            cursor.execute(q)
-            mysubs = cursor.fetchall()
-            userinfo = {
+                """ % user_data[4]
+            cursor.execute(query_stmt)
+            subs = cursor.fetchall()
+            user_info = {
                 "about": about,
-                "email": myuser[4],
-                "followers": [x[0] for x in myfollowers],
-                "following": [x[0] for x in myfollowing],
-                "id": myuser[0],
-                "isAnonymous": bool(myuser[5]),
+                "email": user_data[4],
+                "followers": [x[0] for x in followers],
+                "following": [x[0] for x in following],
+                "id": user_data[0],
+                "isAnonymous": bool(user_data[5]),
                 "name": name,
-                "subscriptions": [x[0] for x in mysubs],
+                "subscriptions": [x[0] for x in subs],
                 "username": username
             }
         else:
-            userinfo = mythread[4]
+            user_info = thread_data[4]
 
         return_data = {
-            "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mythread[10],
+            "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": thread_data[10],
             "forum": foruminfo,
-            "id": mythread[0],
-            "isClosed": bool(mythread[3]),
-            "isDeleted": bool(mythread[8]),
-            "likes": mythread[9],
-            "message": mythread[6],
-            "points": (mythread[9] - mythread[10]),
-            "posts": mythread[11],
-            "slug": mythread[7],
-            "title": mythread[2],
-            "user": userinfo
+            "id": thread_data[0],
+            "isClosed": bool(thread_data[3]),
+            "isDeleted": bool(thread_data[8]),
+            "likes": thread_data[9],
+            "message": thread_data[6],
+            "points": (thread_data[9] - thread_data[10]),
+            "posts": thread_data[11],
+            "slug": thread_data[7],
+            "title": thread_data[2],
+            "user": user_info
         }
-        ListThreads.append(return_data)
-    return jsonify({"code": 0, "response": ListThreads})
+        threads_list.append(return_data)
+    return jsonify({"code": 0, "response": threads_list})
 
 
 @app.route('/db/api/forum/listUsers/', methods=['GET'])
@@ -475,77 +475,77 @@ def forum_listUsers():
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since_id', False)
-    q = """
+    query_stmt = """
         SELECT *
         FROM forums
         WHERE short_name = '%s'
         """ % forum
-    if cursor.execute(q) == 0:
+    if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
         return jsonify(return_data)
 
-    q = """
+    query_stmt = """
         SELECT *
         FROM users
         WHERE email IN (SELECT DISTINCT user FROM posts WHERE forum = '%s')
         """ % forum
     if since:
-        q += " AND user_id >= %d " % (int(since))
-    q += " ORDER BY  name %s " % order
+        query_stmt += " AND user_id >= %d " % (int(since))
+    query_stmt += " ORDER BY  name %s " % order
     if limit:
-        q += " LIMIT %d" % (int(limit))
+        query_stmt += " LIMIT %d" % (int(limit))
 
-    cursor.execute(q)
-    myusers = cursor.fetchall()
+    cursor.execute(query_stmt)
+    user_datas = cursor.fetchall()
 
-    ListUsers = []
-    for myuser in myusers:
-        if myuser[2] == 'None':
+    user_list = []
+    for user_data in user_datas:
+        if user_data[2] == 'None':
             about = None
         else:
-            about = myuser[2]
-        if myuser[1] == 'None':
+            about = user_data[2]
+        if user_data[1] == 'None':
             username = None
         else:
-            username = myuser[1]
-        if myuser[3] == 'None':
+            username = user_data[1]
+        if user_data[3] == 'None':
             name = None
         else:
-            name = myuser[3]
-        q = """
+            name = user_data[3]
+        query_stmt = """
             SELECT who_user
             FROM followers
             WHERE whom_user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        myfollowers = cursor.fetchall()
-        q = """
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        followers = cursor.fetchall()
+        query_stmt = """
             SELECT whom_user
             FROM followers
             WHERE who_user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        myfollowing = cursor.fetchall()
-        q = """
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        following = cursor.fetchall()
+        query_stmt = """
             SELECT thread_id
             FROM subscriptions
             WHERE user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        mysubs = cursor.fetchall()
-        userinfo = {
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        subs = cursor.fetchall()
+        user_info = {
             "about": about,
-            "email": myuser[4],
-            "followers": [x[0] for x in myfollowers],
-            "following": [x[0] for x in myfollowing],
-            "id": myuser[0],
-            "isAnonymous": bool(myuser[5]),
+            "email": user_data[4],
+            "followers": [x[0] for x in followers],
+            "following": [x[0] for x in following],
+            "id": user_data[0],
+            "isAnonymous": bool(user_data[5]),
             "name": name,
-            "subscriptions": [x[0] for x in mysubs],
+            "subscriptions": [x[0] for x in subs],
             "username": username
         }
-        ListUsers.append(userinfo)
-    return jsonify({"code": 0, "response": ListUsers})
+        user_list.append(user_info)
+    return jsonify({"code": 0, "response": user_list})
 
 
 # USERS
@@ -561,15 +561,15 @@ def user_create():
         name = data['name']
         isAnonymous = data.get('isAnonymous', False)
         if name != None:
-            q = """
+            query_stmt = """
                 INSERT INTO users (username, about, name, email, isAnonymous)
                 VALUES('%s','%s','%s','%s',%d)""" % (username, about, name, email, isAnonymous)
         else:
-            q = """
+            query_stmt = """
                 INSERT INTO users (username, about, name, email, isAnonymous)
                 VALUES('%s','%s',Null,'%s',%d)""" % (username, about, email, isAnonymous)
-        cursor.execute(q)
-        returnData = {
+        cursor.execute(query_stmt)
+        return_data = {
             "code": 0,
             "response": {
                 "about": about,
@@ -581,14 +581,14 @@ def user_create():
             }
         }
         db.commit()
-        return jsonify(returnData)
+        return jsonify(return_data)
     except IntegrityError, e:
         if e[0] == 1062:
-            returnData = {"code": 5, "response": "duplicate user"}
-            return jsonify(returnData)
+            return_data = {"code": 5, "response": "duplicate user"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/details/', methods=['GET'])
@@ -596,63 +596,63 @@ def user_details():
     db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test", charset='utf8')
     cursor = db.cursor()
     user = request.args.get('user', '')
-    q = """
+    query_stmt = """
         SELECT *
         FROM users
         WHERE email = '%s'
         """ % user
-    if cursor.execute(q) == 0:
-        returnData = {"code": 1, "response": "USER NOT FOUND"}
-        return jsonify(returnData)
+    if cursor.execute(query_stmt) == 0:
+        return_data = {"code": 1, "response": "USER NOT FOUND"}
+        return jsonify(return_data)
     else:
-        myuser = cursor.fetchone()
-        q = """
+        user_data = cursor.fetchone()
+        query_stmt = """
             SELECT who_user
             FROM followers
             WHERE whom_user = '%s'
-            """ % myuser[4]
-        cursor.execute(q)
-        myfollowers = cursor.fetchall()
-        q = """
+            """ % user_data[4]
+        cursor.execute(query_stmt)
+        followers = cursor.fetchall()
+        query_stmt = """
             SELECT whom_user
             FROM followers
             WHERE who_user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        myfollowing = cursor.fetchall()
-        q = """
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        following = cursor.fetchall()
+        query_stmt = """
             SELECT thread_id
             FROM subscriptions
             WHERE user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        mysubs = cursor.fetchall()
-        if myuser[2] == 'None':
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        subs = cursor.fetchall()
+        if user_data[2] == 'None':
             about = None
         else:
-            about = myuser[2]
-        if myuser[1] == 'None':
+            about = user_data[2]
+        if user_data[1] == 'None':
             username = None
         else:
-            username = myuser[1]
-        if myuser[3] == 'None':
+            username = user_data[1]
+        if user_data[3] == 'None':
             name = None
         else:
-            name = myuser[3]
+            name = user_data[3]
 
-        userinfo = {
+        user_info = {
             "about": about,
-            "email": myuser[4],
-            "followers": [x[0] for x in myfollowers],
-            "following": [x[0] for x in myfollowing],
-            "id": myuser[0],
-            "isAnonymous": bool(myuser[5]),
+            "email": user_data[4],
+            "followers": [x[0] for x in followers],
+            "following": [x[0] for x in following],
+            "id": user_data[0],
+            "isAnonymous": bool(user_data[5]),
             "name": name,
-            "subscriptions": [x[0] for x in mysubs],
+            "subscriptions": [x[0] for x in subs],
             "username": username
         }
-        returnData = {"code": 0, "response": userinfo}
-        return jsonify(returnData)
+        return_data = {"code": 0, "response": user_info}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/listPosts/', methods=['GET'])
@@ -661,61 +661,61 @@ def user_listPosts():
     cursor = db.cursor()
     user = request.args.get('user', False)
     if not user:
-        returnData = {"code": 3, "response": "bad syntax"}
-        return jsonify(returnData)
+        return_data = {"code": 3, "response": "bad syntax"}
+        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', 'desc')
-    q = """
+    query_stmt = """
         SELECT *
         FROM users
         WHERE email = '%s'
         """ % user
-    cursor.execute(q)
-    myuser = cursor.fetchone()
-    if myuser:
-        q = """
+    cursor.execute(query_stmt)
+    user_data = cursor.fetchone()
+    if user_data:
+        query_stmt = """
             SELECT *
             FROM posts
             WHERE user = '%s'
             """ % user
         if since:
-            q += " AND date >= '%s' " % (since)
-        q += " ORDER BY date %s " % (order)
+            query_stmt += " AND date >= '%s' " % (since)
+        query_stmt += " ORDER BY date %s " % (order)
         if limit:
-            q += " LIMIT %d" % (int(limit))
-        cursor.execute(q)
-        myposts = cursor.fetchall()
-        postlist = []
+            query_stmt += " LIMIT %d" % (int(limit))
+        cursor.execute(query_stmt)
+        post_datas = cursor.fetchall()
+        post_list = []
 
-        for mypost in myposts:
-            if mypost[1] == 0:
+        for post_data in post_datas:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            postlist.append({
-                "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-                "dislikes": mypost[10],
-                "forum": mypost[9],
-                "id": mypost[0],
-                "isApproved": bool(mypost[2]),
-                "isDeleted": bool(mypost[5]),
-                "isEdited": bool(mypost[3]),
-                "isHighlighted": bool(mypost[13]),
-                "isSpam": bool(mypost[4]),
-                "likes": mypost[11],
-                "message": mypost[7],
+                parent = post_data[1]
+            post_list.append({
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post_data[10],
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": post_data[11],
+                "message": post_data[7],
                 "parent": parent,
-                "points": (mypost[11] - mypost[10]),
-                "thread": mypost[12],
-                "user": mypost[8]
+                "points": (post_data[11] - post_data[10]),
+                "thread": post_data[12],
+                "user": post_data[8]
             })
-        returnData = {"code": 0, "response": postlist}
-        return jsonify(returnData)
+        return_data = {"code": 0, "response": post_list}
+        return jsonify(return_data)
 
     else:
-        returnData = {"code": 1, "response": "USER NOT FOUND"}
-        return jsonify(returnData)
+        return_data = {"code": 1, "response": "USER NOT FOUND"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/updateProfile/', methods=['POST'])
@@ -727,123 +727,123 @@ def user_updateProfile():
         user = data['user']
         about = data['about']
         name = data['name']
-        q = """
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
             """ % user
-        cursor.execute(q)
-        myuser = cursor.fetchone()
-        if myuser:
-            if (myuser[2] != about) or (myuser[3] != name):
-                q = """
+        cursor.execute(query_stmt)
+        user_data = cursor.fetchone()
+        if user_data:
+            if (user_data[2] != about) or (user_data[3] != name):
+                query_stmt = """
                     UPDATE users set about = '%s'
                     WHERE email = '%s'
                     """ % (about, user)
-                cursor.execute(q)
-                q = """
+                cursor.execute(query_stmt)
+                query_stmt = """
                     UPDATE users set name = '%s'
                     WHERE email = '%s'
                     """ % (name, user)
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     SELECT who_user
                     FROM followers
                     WHERE whom_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowers = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                followers = cursor.fetchall()
+                query_stmt = """
                     SELECT whom_user
                     FROM followers
                     WHERE who_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowing = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                following = cursor.fetchall()
+                query_stmt = """
                     SELECT thread_id
                     FROM subscriptions
                     WHERE user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                mysubs = cursor.fetchall()
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                subs = cursor.fetchall()
                 if about == 'None':
                     about = None
-                if myuser[1] == 'None':
+                if user_data[1] == 'None':
                     username = None
                 else:
-                    username = myuser[1]
+                    username = user_data[1]
                 if name == 'None':
                     name = None
-                userinfo = {
+                user_info = {
                     "about": about,
-                    "email": myuser[4],
-                    "followers": [x[0] for x in myfollowers],
-                    "following": [x[0] for x in myfollowing],
-                    "id": myuser[0],
-                    "isAnonymous": bool(myuser[5]),
+                    "email": user_data[4],
+                    "followers": [x[0] for x in followers],
+                    "following": [x[0] for x in following],
+                    "id": user_data[0],
+                    "isAnonymous": bool(user_data[5]),
                     "name": name,
-                    "subscriptions": [x[0] for x in mysubs],
+                    "subscriptions": [x[0] for x in subs],
                     "username": username
                 }
-                returnData = {"code": 0, "response": userinfo}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": user_info}
+                return jsonify(return_data)
             else:
 
-                q = """
+                query_stmt = """
                     SELECT who_user
                     FROM followers
                     WHERE whom_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowers = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                followers = cursor.fetchall()
+                query_stmt = """
                     SELECT whom_user
                     FROM followers
                     WHERE who_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowing = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                following = cursor.fetchall()
+                query_stmt = """
                     SELECT thread_id
                     FROM subscriptions
                     WHERE user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                mysubs = cursor.fetchall()
-                if myuser[2] == 'None':
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                subs = cursor.fetchall()
+                if user_data[2] == 'None':
                     about = None
                 else:
-                    about = myuser[2]
-                if myuser[1] == 'None':
+                    about = user_data[2]
+                if user_data[1] == 'None':
                     username = None
                 else:
-                    username = myuser[1]
-                if myuser[3] == 'None':
+                    username = user_data[1]
+                if user_data[3] == 'None':
                     name = None
                 else:
-                    name = myuser[3]
+                    name = user_data[3]
 
-                userinfo = {
+                user_info = {
                     "about": about,
-                    "email": myuser[4],
-                    "followers": [x[0] for x in myfollowers],
-                    "following": [x[0] for x in myfollowing],
-                    "id": myuser[0],
-                    "isAnonymous": bool(myuser[5]),
+                    "email": user_data[4],
+                    "followers": [x[0] for x in followers],
+                    "following": [x[0] for x in following],
+                    "id": user_data[0],
+                    "isAnonymous": bool(user_data[5]),
                     "name": name,
-                    "subscriptions": [x[0] for x in mysubs],
+                    "subscriptions": [x[0] for x in subs],
                     "username": username
                 }
-                returnData = {"code": 0, "response": userinfo}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": user_info}
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "USER NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "USER NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/follow/', methods=['POST'])
@@ -855,151 +855,151 @@ def user_follow():
         follower = data['follower']  # who
         followee = data['followee']  # whom
         if followee == follower:
-            returnData = {"code": 3, "response": "WTF!"}
-            return jsonify(returnData)
-        q = """
+            return_data = {"code": 3, "response": "WTF!"}
+            return jsonify(return_data)
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
             """ % followee
-        cursor.execute(q)
-        myuserwhom = cursor.fetchone()
-        if myuserwhom:
-            q = """
+        cursor.execute(query_stmt)
+        user_datawhom = cursor.fetchone()
+        if user_datawhom:
+            query_stmt = """
                 SELECT *
                 FROM followers
                 WHERE who_user = '%s' AND whom_user = '%s'
                 """ % (follower, followee)
-            cursor.execute(q)
+            cursor.execute(query_stmt)
             if not cursor.fetchone():
-                q = """
+                query_stmt = """
                     SELECT *
                     FROM users
                     WHERE email = '%s'
                     """ % follower
-                cursor.execute(q)
-                myuser = cursor.fetchone()
-                if myuser:
-                    q = """
+                cursor.execute(query_stmt)
+                user_data = cursor.fetchone()
+                if user_data:
+                    query_stmt = """
                         INSERT into followers (who_user, whom_user)
                         VALUES ('%s', '%s')
                         """ % (follower, followee)
-                    cursor.execute(q)
+                    cursor.execute(query_stmt)
                     db.commit()
-                    q = """
+                    query_stmt = """
                         SELECT who_user
                         FROM followers
                         WHERE whom_user = '%s'
-                        """ % (myuser[4])
-                    cursor.execute(q)
-                    myfollowers = cursor.fetchall()
-                    q = """
+                        """ % (user_data[4])
+                    cursor.execute(query_stmt)
+                    followers = cursor.fetchall()
+                    query_stmt = """
                         SELECT whom_user
                         FROM followers
                         WHERE who_user = '%s'
-                        """ % (myuser[4])
-                    cursor.execute(q)
-                    myfollowing = cursor.fetchall()
-                    q = """
+                        """ % (user_data[4])
+                    cursor.execute(query_stmt)
+                    following = cursor.fetchall()
+                    query_stmt = """
                         SELECT thread_id
                         FROM subscriptions
                         WHERE user = '%s'
-                        """ % (myuser[4])
-                    cursor.execute(q)
-                    mysubs = cursor.fetchall()
-                    if myuser[2] == 'None':
+                        """ % (user_data[4])
+                    cursor.execute(query_stmt)
+                    subs = cursor.fetchall()
+                    if user_data[2] == 'None':
                         about = None
                     else:
-                        about = myuser[2]
-                    if myuser[1] == 'None':
+                        about = user_data[2]
+                    if user_data[1] == 'None':
                         username = None
                     else:
-                        username = myuser[1]
-                    if myuser[3] == 'None':
+                        username = user_data[1]
+                    if user_data[3] == 'None':
                         name = None
                     else:
-                        name = myuser[3]
+                        name = user_data[3]
 
-                    userinfo = {
+                    user_info = {
                         "about": about,
-                        "email": myuser[4],
-                        "followers": [x[0] for x in myfollowers],
-                        "following": [x[0] for x in myfollowing],
-                        "id": myuser[0],
-                        "isAnonymous": bool(myuser[5]),
+                        "email": user_data[4],
+                        "followers": [x[0] for x in followers],
+                        "following": [x[0] for x in following],
+                        "id": user_data[0],
+                        "isAnonymous": bool(user_data[5]),
                         "name": name,
-                        "subscriptions": [x[0] for x in mysubs],
+                        "subscriptions": [x[0] for x in subs],
                         "username": username
                     }
-                    returnData = {"code": 0, "response": userinfo}
-                    return jsonify(returnData)
+                    return_data = {"code": 0, "response": user_info}
+                    return jsonify(return_data)
                 else:
-                    returnData = {"code": 1, "response": "USER NOT FOUND"}
+                    return_data = {"code": 1, "response": "USER NOT FOUND"}
 
-                    return jsonify(returnData)
+                    return jsonify(return_data)
             else:
-                q = """
+                query_stmt = """
                     SELECT *
                     FROM users
                     WHERE email = '%s'
                     """ % follower
-                cursor.execute(q)
-                myuser = cursor.fetchone()
-                q = """
+                cursor.execute(query_stmt)
+                user_data = cursor.fetchone()
+                query_stmt = """
                     SELECT who_user
                     FROM followers
                     WHERE whom_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowers = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                followers = cursor.fetchall()
+                query_stmt = """
                     SELECT whom_user
                     FROM followers
                     WHERE who_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowing = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                following = cursor.fetchall()
+                query_stmt = """
                     SELECT thread_id
                     FROM subscriptions
                     WHERE user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                mysubs = cursor.fetchall()
-                if myuser[2] == 'None':
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                subs = cursor.fetchall()
+                if user_data[2] == 'None':
                     about = None
                 else:
-                    about = myuser[2]
-                if myuser[1] == 'None':
+                    about = user_data[2]
+                if user_data[1] == 'None':
                     username = None
                 else:
-                    username = myuser[1]
-                if myuser[3] == 'None':
+                    username = user_data[1]
+                if user_data[3] == 'None':
                     name = None
                 else:
-                    name = myuser[3]
+                    name = user_data[3]
 
-                userinfo = {
+                user_info = {
                     "about": about,
-                    "email": myuser[4],
-                    "followers": [x[0] for x in myfollowers],
-                    "following": [x[0] for x in myfollowing],
-                    "id": myuser[0],
-                    "isAnonymous": bool(myuser[5]),
+                    "email": user_data[4],
+                    "followers": [x[0] for x in followers],
+                    "following": [x[0] for x in following],
+                    "id": user_data[0],
+                    "isAnonymous": bool(user_data[5]),
                     "name": name,
-                    "subscriptions": [x[0] for x in mysubs],
+                    "subscriptions": [x[0] for x in subs],
                     "username": username
                 }
-                returnData = {"code": 0, "response": userinfo}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": user_info}
+                return jsonify(return_data)
 
         else:
-            returnData = {"code": 1, "response": "USER NOT FOUND"}
+            return_data = {"code": 1, "response": "USER NOT FOUND"}
 
-            return jsonify(returnData)
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/listFollowers/', methods=['GET'])
@@ -1008,79 +1008,79 @@ def user_listFollowers():
     cursor = db.cursor()
     user = request.args.get('user', False)
     if not user:
-        returnData = {"code": 3, "response": "bad syntax"}
-        return jsonify(returnData)
+        return_data = {"code": 3, "response": "bad syntax"}
+        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since_id = request.args.get('since_id', False)
     order = request.args.get('order', 'desc')
-    q = "SELECT * FROM users WHERE email = '%s'" % (user)
-    cursor.execute(q)
-    myuser = cursor.fetchone()
-    if myuser:
-        q = """
+    query_stmt = "SELECT * FROM users WHERE email = '%s'" % (user)
+    cursor.execute(query_stmt)
+    user_data = cursor.fetchone()
+    if user_data:
+        query_stmt = """
             SELECT straight_join user_id, username, about, name, email, isAnonymous
             FROM followers join users ON users.email = followers.who_user
             WHERE whom_user = '%s'
             """ % user
         if since_id:
-            q += " AND user_id >= %d " % (int(since_id))
-        q += " ORDER BY name %s" % order
+            query_stmt += " AND user_id >= %d " % (int(since_id))
+        query_stmt += " ORDER BY name %s" % order
         if limit:
-            q += " LIMIT %d" % (int(limit))
-        cursor.execute(q)
-        myfollowers = cursor.fetchall()
-        followersList = []
-        for myuser in myfollowers:
-            q = """
+            query_stmt += " LIMIT %d" % (int(limit))
+        cursor.execute(query_stmt)
+        followers = cursor.fetchall()
+        followers_list = []
+        for user_data in followers:
+            query_stmt = """
                 SELECT who_user
                 FROM followers
                 WHERE whom_user = '%s'
-                """ % (myuser[4])
-            cursor.execute(q)
-            myfollowers = cursor.fetchall()
-            q = """
+                """ % (user_data[4])
+            cursor.execute(query_stmt)
+            followers = cursor.fetchall()
+            query_stmt = """
                 SELECT whom_user
                 FROM followers
                 WHERE who_user = '%s'
-                """ % (myuser[4])
-            cursor.execute(q)
-            myfollowing = cursor.fetchall()
-            q = """
+                """ % (user_data[4])
+            cursor.execute(query_stmt)
+            following = cursor.fetchall()
+            query_stmt = """
                 SELECT thread_id
                 FROM subscriptions
                 WHERE user = '%s'
-                """ % (myuser[4])
-            cursor.execute(q)
-            mysubs = cursor.fetchall()
-            if myuser[2] == 'None':
+                """ % (user_data[4])
+            cursor.execute(query_stmt)
+            subs = cursor.fetchall()
+            if user_data[2] == 'None':
                 about = None
             else:
-                about = myuser[2]
-            if myuser[1] == 'None':
+                about = user_data[2]
+            if user_data[1] == 'None':
                 username = None
             else:
-                username = myuser[1]
-            if myuser[3] == 'None':
+                username = user_data[1]
+            if user_data[3] == 'None':
                 name = None
             else:
-                name = myuser[3]
-            userinfo = {
+                name = user_data[3]
+            user_info = {
                 "about": about,
-                "email": myuser[4],
-                "followers": [x[0] for x in myfollowers],
-                "following": [x[0] for x in myfollowing],
-                "id": myuser[0],
-                "isAnonymous": bool(myuser[5]),
+                "email": user_data[4],
+                "followers": [x[0] for x in followers],
+                "following": [x[0] for x in following],
+                "id": user_data[0],
+                "isAnonymous": bool(user_data[5]),
                 "name": name,
-                "subscriptions": [x[0] for x in mysubs],
+                "subscriptions": [x[0] for x in subs],
                 "username": username
             }
-            followersList.append(userinfo)
-        returnData = {"code": 0, "response": followersList}
-        return jsonify(returnData)
+            followers_list.append(user_info)
+        return_data = {"code": 0, "response": followers_list}
+        return jsonify(return_data)
     else:
-        returnData = {"code": 1, "response": "USER NOT FOUND"}
-        return jsonify(returnData)
+        return_data = {"code": 1, "response": "USER NOT FOUND"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/listFollowing/', methods=['GET'])
@@ -1089,83 +1089,83 @@ def user_listFollowing():
     cursor = db.cursor()
     user = request.args.get('user', False)
     if not user:
-        returnData = {"code": 3, "response": "bad syntax"}
-        return jsonify(returnData)
+        return_data = {"code": 3, "response": "bad syntax"}
+        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since_id = request.args.get('since_id', False)
     order = request.args.get('order', 'desc')
-    q = """
+    query_stmt = """
         SELECT *
         FROM users
         WHERE email = '%s'
         """ % user
-    cursor.execute(q)
-    myuser = cursor.fetchone()
-    if myuser:
-        q = """
+    cursor.execute(query_stmt)
+    user_data = cursor.fetchone()
+    if user_data:
+        query_stmt = """
             SELECT straight_join user_id, username, about, name, email, isAnonymous
             FROM followers join users ON users.email = followers.whom_user
             WHERE who_user = '%s'
             """ % user
         if since_id:
-            q += " AND user_id >= %d " % (int(since_id))
-        q += " ORDER BY name %s" % order
+            query_stmt += " AND user_id >= %d " % (int(since_id))
+        query_stmt += " ORDER BY name %s" % order
         if limit:
-            q += " LIMIT %d" % (int(limit))
-        cursor.execute(q)
-        allmyfollowing = cursor.fetchall()
-        myfollowingList = []
-        for myuser in allmyfollowing:
-            q = """
+            query_stmt += " LIMIT %d" % (int(limit))
+        cursor.execute(query_stmt)
+        all_following = cursor.fetchall()
+        following_list = []
+        for user_data in all_following:
+            query_stmt = """
                 SELECT who_user
                 FROM followers
                 WHERE whom_user = '%s'
-                """ % (myuser[4])
-            cursor.execute(q)
-            myfollowers = cursor.fetchall()
-            q = """
+                """ % (user_data[4])
+            cursor.execute(query_stmt)
+            followers = cursor.fetchall()
+            query_stmt = """
                 SELECT whom_user
                 FROM followers
                 WHERE who_user = '%s'
-                """ % (myuser[4])
-            cursor.execute(q)
-            myfollowing = cursor.fetchall()
-            q = """
+                """ % (user_data[4])
+            cursor.execute(query_stmt)
+            following = cursor.fetchall()
+            query_stmt = """
                 SELECT thread_id
                 FROM subscriptions
                 WHERE user = '%s'
-                """ % (myuser[4])
-            cursor.execute(q)
-            mysubs = cursor.fetchall()
-            if myuser[2] == 'None':
+                """ % (user_data[4])
+            cursor.execute(query_stmt)
+            subs = cursor.fetchall()
+            if user_data[2] == 'None':
                 about = None
             else:
-                about = myuser[2]
-            if myuser[1] == 'None':
+                about = user_data[2]
+            if user_data[1] == 'None':
                 username = None
             else:
-                username = myuser[1]
-            if myuser[3] == 'None':
+                username = user_data[1]
+            if user_data[3] == 'None':
                 name = None
             else:
-                name = myuser[3]
-            userinfo = {
+                name = user_data[3]
+            user_info = {
                 "about": about,
-                "email": myuser[4],
-                "followers": [x[0] for x in myfollowers],
-                "following": [x[0] for x in myfollowing],
-                "id": myuser[0],
-                "isAnonymous": bool(myuser[5]),
+                "email": user_data[4],
+                "followers": [x[0] for x in followers],
+                "following": [x[0] for x in following],
+                "id": user_data[0],
+                "isAnonymous": bool(user_data[5]),
                 "name": name,
-                "subscriptions": [x[0] for x in mysubs],
+                "subscriptions": [x[0] for x in subs],
                 "username": username
             }
-            myfollowingList.append(userinfo)
-        returnData = {"code": 0, "response": myfollowingList}
-        return jsonify(returnData)
+            following_list.append(user_info)
+        return_data = {"code": 0, "response": following_list}
+        return jsonify(return_data)
     else:
-        returnData = {"code": 1, "response": "USER NOT FOUND"}
-        return jsonify(returnData)
+        return_data = {"code": 1, "response": "USER NOT FOUND"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/user/unfollow/', methods=['POST'])
@@ -1177,149 +1177,149 @@ def uesr_unfollow():
         follower = data['follower']  # who
         followee = data['followee']  # whom
         if followee == follower:
-            returnData = {"code": 3, "response": "WTF!"}
-            return jsonify(returnData)
-        q = """
+            return_data = {"code": 3, "response": "WTF!"}
+            return jsonify(return_data)
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
             """ % followee
-        cursor.execute(q)
-        myuserwhom = cursor.fetchone()
-        if myuserwhom:
-            q = """
+        cursor.execute(query_stmt)
+        user_datawhom = cursor.fetchone()
+        if user_datawhom:
+            query_stmt = """
                 SELECT *
                 FROM followers
                 WHERE who_user = '%s' AND whom_user = '%s'
                 """ % (follower, followee)
-            cursor.execute(q)
+            cursor.execute(query_stmt)
             if cursor.fetchone():
-                q = """
+                query_stmt = """
                     SELECT *
                     FROM users
                     WHERE email = '%s'
                     """ % follower
-                cursor.execute(q)
-                myuser = cursor.fetchone()
-                if myuser:
-                    q = """
+                cursor.execute(query_stmt)
+                user_data = cursor.fetchone()
+                if user_data:
+                    query_stmt = """
                         DELETE
                         FROM followers
                         WHERE who_user = '%s' AND whom_user = '%s'
                         """ % (follower, followee)
-                    cursor.execute(q)
+                    cursor.execute(query_stmt)
                     db.commit()
-                    q = """
+                    query_stmt = """
                         SELECT who_user
                         FROM followers
                         WHERE whom_user = '%s'
-                        """ % (myuser[4])
-                    cursor.execute(q)
-                    myfollowers = cursor.fetchall()
-                    q = """
+                        """ % (user_data[4])
+                    cursor.execute(query_stmt)
+                    followers = cursor.fetchall()
+                    query_stmt = """
                         SELECT whom_user
                         FROM followers
                         WHERE who_user = '%s'
-                        """ % (myuser[4])
-                    cursor.execute(q)
-                    myfollowing = cursor.fetchall()
-                    q = """
+                        """ % (user_data[4])
+                    cursor.execute(query_stmt)
+                    following = cursor.fetchall()
+                    query_stmt = """
                         SELECT thread_id
                         FROM subscriptions
                         WHERE user = '%s'
-                        """ % (myuser[4])
-                    cursor.execute(q)
-                    mysubs = cursor.fetchall()
-                    if myuser[2] == 'None':
+                        """ % (user_data[4])
+                    cursor.execute(query_stmt)
+                    subs = cursor.fetchall()
+                    if user_data[2] == 'None':
                         about = None
                     else:
-                        about = myuser[2]
-                    if myuser[1] == 'None':
+                        about = user_data[2]
+                    if user_data[1] == 'None':
                         username = None
                     else:
-                        username = myuser[1]
-                    if myuser[3] == 'None':
+                        username = user_data[1]
+                    if user_data[3] == 'None':
                         name = None
                     else:
-                        name = myuser[3]
+                        name = user_data[3]
 
-                    userinfo = {
+                    user_info = {
                         "about": about,
-                        "email": myuser[4],
-                        "followers": [x[0] for x in myfollowers],
-                        "following": [x[0] for x in myfollowing],
-                        "id": myuser[0],
-                        "isAnonymous": bool(myuser[5]),
+                        "email": user_data[4],
+                        "followers": [x[0] for x in followers],
+                        "following": [x[0] for x in following],
+                        "id": user_data[0],
+                        "isAnonymous": bool(user_data[5]),
                         "name": name,
-                        "subscriptions": [x[0] for x in mysubs],
+                        "subscriptions": [x[0] for x in subs],
                         "username": username
                     }
-                    returnData = {"code": 0, "response": userinfo}
-                    return jsonify(returnData)
+                    return_data = {"code": 0, "response": user_info}
+                    return jsonify(return_data)
                 else:
-                    returnData = {"code": 1, "response": "USER NOT FOUND"}
+                    return_data = {"code": 1, "response": "USER NOT FOUND"}
 
-                    return jsonify(returnData)
+                    return jsonify(return_data)
             else:
-                q = """
+                query_stmt = """
                     SELECT *
                     FROM users
                     WHERE email = '%s'
                     """ % follower
-                cursor.execute(q)
-                myuser = cursor.fetchone()
-                q = """
+                cursor.execute(query_stmt)
+                user_data = cursor.fetchone()
+                query_stmt = """
                     SELECT who_user
                     FROM followers
                     WHERE whom_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowers = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                followers = cursor.fetchall()
+                query_stmt = """
                     SELECT whom_user
                     FROM followers
                     WHERE who_user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                myfollowing = cursor.fetchall()
-                q = """
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                following = cursor.fetchall()
+                query_stmt = """
                     SELECT thread_id
                     FROM subscriptions
                     WHERE user = '%s'
-                    """ % (myuser[4])
-                cursor.execute(q)
-                mysubs = cursor.fetchall()
-                if myuser[2] == 'None':
+                    """ % (user_data[4])
+                cursor.execute(query_stmt)
+                subs = cursor.fetchall()
+                if user_data[2] == 'None':
                     about = None
                 else:
-                    about = myuser[2]
-                if myuser[1] == 'None':
+                    about = user_data[2]
+                if user_data[1] == 'None':
                     username = None
                 else:
-                    username = myuser[1]
-                if myuser[3] == 'None':
+                    username = user_data[1]
+                if user_data[3] == 'None':
                     name = None
                 else:
-                    name = myuser[3]
-                userinfo = {
+                    name = user_data[3]
+                user_info = {
                     "about": about,
-                    "email": myuser[4],
-                    "followers": [x[0] for x in myfollowers],
-                    "following": [x[0] for x in myfollowing],
-                    "id": myuser[0],
-                    "isAnonymous": bool(myuser[5]),
+                    "email": user_data[4],
+                    "followers": [x[0] for x in followers],
+                    "following": [x[0] for x in following],
+                    "id": user_data[0],
+                    "isAnonymous": bool(user_data[5]),
                     "name": name,
-                    "subscriptions": [x[0] for x in mysubs],
+                    "subscriptions": [x[0] for x in subs],
                     "username": username
                 }
-                returnData = {"code": 0, "response": userinfo}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": user_info}
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "USER NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "USER NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 # THREADS
@@ -1337,13 +1337,13 @@ def thread_create():
         message = data['message']
         slug = data['slug']
         isDeleted = data.get('isDeleted', False)
-        q = """
+        query_stmt = """
             INSERT INTO threads (forum, title, isClosed, user, date, message,slug, isDeleted)
             VALUES('%s', '%s', %d, '%s', '%s', '%s', '%s', %d)""" % (
             forum, title, isClosed, user, date, message, slug, isDeleted)
-        cursor.execute(q)
+        cursor.execute(query_stmt)
         db.commit()
-        returnData = {
+        return_data = {
             'code': 0,
             'response': {
                 'date': date,
@@ -1356,10 +1356,10 @@ def thread_create():
                 'user': user
             }
         }
-        return jsonify(returnData)
+        return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/details/', methods=['GET'])
@@ -1368,109 +1368,109 @@ def thread_details():
     cursor = db.cursor()
     thread = request.args.get('thread', '')
     related = request.args.getlist('related')
-    q = """
+    query_stmt = """
         SELECT *
         FROM threads
         WHERE thread_id = '%s'
         """ % thread
-    if cursor.execute(q) == 0:
-        returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-        return jsonify(returnData)
-    mythread = cursor.fetchone()
+    if cursor.execute(query_stmt) == 0:
+        return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+        return jsonify(return_data)
+    thread_data = cursor.fetchone()
     if 'user' in related:
-        q = """
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
-            """ % (mythread[4])
+            """ % (thread_data[4])
         related.remove('user')
-        cursor.execute(q)
-        myuser = cursor.fetchone()
-        if myuser[2] == 'None':
+        cursor.execute(query_stmt)
+        user_data = cursor.fetchone()
+        if user_data[2] == 'None':
             about = None
         else:
-            about = myuser[2]
-        if myuser[1] == 'None':
+            about = user_data[2]
+        if user_data[1] == 'None':
             username = None
         else:
-            username = myuser[1]
-        if myuser[3] == 'None':
+            username = user_data[1]
+        if user_data[3] == 'None':
             name = None
         else:
-            name = myuser[3]
-        q = """
+            name = user_data[3]
+        query_stmt = """
             SELECT who_user
             FROM followers
             WHERE whom_user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        myfollowers = cursor.fetchall()
-        q = """
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        followers = cursor.fetchall()
+        query_stmt = """
             SELECT whom_user
             FROM followers
             WHERE who_user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        myfollowing = cursor.fetchall()
-        q = """
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        following = cursor.fetchall()
+        query_stmt = """
             SELECT thread_id
             FROM subscriptions
             WHERE user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        mysubs = cursor.fetchall()
-        userinfo = {
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        subs = cursor.fetchall()
+        user_info = {
             "about": about,
-            "email": myuser[4],
-            "followers": [x[0] for x in myfollowers],
-            "following": [x[0] for x in myfollowing],
-            "id": myuser[0],
-            "isAnonymous": bool(myuser[5]),
+            "email": user_data[4],
+            "followers": [x[0] for x in followers],
+            "following": [x[0] for x in following],
+            "id": user_data[0],
+            "isAnonymous": bool(user_data[5]),
             "name": name,
-            "subscriptions": [x[0] for x in mysubs],
+            "subscriptions": [x[0] for x in subs],
             "username": username
         }
     else:
-        userinfo = mythread[4]
+        user_info = thread_data[4]
     if 'forum' in related:
         related.remove('forum')
-        q = """
+        query_stmt = """
             SELECT *
             FROM forums
             WHERE short_name = '%s'
-            """ % (mythread[1])
-        cursor.execute(q)
-        myforum = cursor.fetchone()
+            """ % (thread_data[1])
+        cursor.execute(query_stmt)
+        forum_data = cursor.fetchone()
         foruminfo = {
-            "id": myforum[3],
-            "name": myforum[0],
-            "short_name": myforum[1],
-            "user": myforum[2]
+            "id": forum_data[3],
+            "name": forum_data[0],
+            "short_name": forum_data[1],
+            "user": forum_data[2]
         }
     else:
-        foruminfo = mythread[1]
+        foruminfo = thread_data[1]
     if related:
-        returnData = {"code": 3, "response": "invalid syntax"}
-        return jsonify(returnData)
-    returnData = {
+        return_data = {"code": 3, "response": "invalid syntax"}
+        return jsonify(return_data)
+    return_data = {
         "code": 0,
         "response": {
-            "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mythread[10],
+            "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": thread_data[10],
             "forum": foruminfo,
-            "id": mythread[0],
-            "isClosed": bool(mythread[3]),
-            "isDeleted": bool(mythread[8]),
-            "likes": mythread[9],
-            "message": mythread[6],
-            "points": (mythread[9] - mythread[10]),
-            "posts": mythread[11],
-            "slug": mythread[7],
-            "title": mythread[2],
-            "user": userinfo
+            "id": thread_data[0],
+            "isClosed": bool(thread_data[3]),
+            "isDeleted": bool(thread_data[8]),
+            "likes": thread_data[9],
+            "message": thread_data[6],
+            "points": (thread_data[9] - thread_data[10]),
+            "posts": thread_data[11],
+            "slug": thread_data[7],
+            "title": thread_data[2],
+            "user": user_info
         }
     }
-    return jsonify(returnData)
+    return jsonify(return_data)
 
 
 @app.route("/db/api/thread/list/", methods=["GET"])
@@ -1480,47 +1480,47 @@ def thread_list():
     user = request.args.get('user', False)
     forum = request.args.get('forum', False)
     if user and forum:
-        returnData = {"code": 3, "response": "bad syntax"}
-        return jsonify(returnData)
+        return_data = {"code": 3, "response": "bad syntax"}
+        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', False)
-    q = """
+    query_stmt = """
         SELECT *
         FROM threads
         WHERE
         """
     if user:
-        q += "user =  '%s'" % user
+        query_stmt += "user =  '%s'" % user
     else:
-        q += "forum = '%s' " % forum
+        query_stmt += "forum = '%s' " % forum
     if since:
-        q += " AND date >= '%s' " % since
+        query_stmt += " AND date >= '%s' " % since
     if order:
-        q += " ORDER BY date %s " % order
+        query_stmt += " ORDER BY date %s " % order
     if limit:
-        q += " LIMIT %d" % (int(limit))
-    cursor.execute(q)
+        query_stmt += " LIMIT %d" % (int(limit))
+    cursor.execute(query_stmt)
     threads = cursor.fetchall()
     returnthreads = []
-    for mythread in threads:
+    for thread_data in threads:
         returnthreads.append({
-            "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mythread[10],
-            "forum": mythread[1],
-            "id": mythread[0],
-            "isClosed": bool(mythread[3]),
-            "isDeleted": bool(mythread[8]),
-            "likes": mythread[9],
-            "message": mythread[6],
-            "points": (mythread[9] - mythread[10]),
-            "posts": mythread[11],
-            "slug": mythread[7],
-            "title": mythread[2],
-            "user": mythread[4]
+            "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": thread_data[10],
+            "forum": thread_data[1],
+            "id": thread_data[0],
+            "isClosed": bool(thread_data[3]),
+            "isDeleted": bool(thread_data[8]),
+            "likes": thread_data[9],
+            "message": thread_data[6],
+            "points": (thread_data[9] - thread_data[10]),
+            "posts": thread_data[11],
+            "slug": thread_data[7],
+            "title": thread_data[2],
+            "user": thread_data[4]
         })
-    returnData = {"code": 0, "response": returnthreads}
-    return jsonify(returnData)
+    return_data = {"code": 0, "response": returnthreads}
+    return jsonify(return_data)
 
 
 @app.route('/db/api/thread/listPosts/', methods=['GET'])
@@ -1529,60 +1529,60 @@ def thread_listpost():
     cursor = db.cursor()
     thread = request.args.get('thread', False)
     if not thread:
-        returnData = {"code": 3, "response": "bad syntax"}
-        return jsonify(returnData)
+        return_data = {"code": 3, "response": "bad syntax"}
+        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', 'desc')
-    q = """
+    query_stmt = """
         SELECT *
         FROM threads
         WHERE thread_id = %d
         """ % (int(thread))
-    cursor.execute(q)
-    mythread = cursor.fetchone()
-    if mythread:
-        q = """
+    cursor.execute(query_stmt)
+    thread_data = cursor.fetchone()
+    if thread_data:
+        query_stmt = """
             SELECT *
             FROM posts
             WHERE thread = %d
             """ % (int(thread))
         if since:
-            q += " AND date >= '%s' " % since
-        q += " ORDER BY date %s " % order
+            query_stmt += " AND date >= '%s' " % since
+        query_stmt += " ORDER BY date %s " % order
         if limit:
-            q += " LIMIT %d" % (int(limit))
-        cursor.execute(q)
-        myposts = cursor.fetchall()
-        postlist = []
-        for mypost in myposts:
-            if mypost[1] == 0:
+            query_stmt += " LIMIT %d" % (int(limit))
+        cursor.execute(query_stmt)
+        post_datas = cursor.fetchall()
+        post_list = []
+        for post_data in post_datas:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
-            postlist.append({
-                "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-                "dislikes": mypost[10],
-                "forum": mypost[9],
-                "id": mypost[0],
-                "isApproved": bool(mypost[2]),
-                "isDeleted": bool(mypost[5]),
-                "isEdited": bool(mypost[3]),
-                "isHighlighted": bool(mypost[13]),
-                "isSpam": bool(mypost[4]),
-                "likes": mypost[11],
-                "message": mypost[7],
+                parent = post_data[1]
+            post_list.append({
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post_data[10],
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": post_data[11],
+                "message": post_data[7],
                 "parent": parent,
-                "points": (mypost[11] - mypost[10]),
-                "thread": mypost[12],
-                "user": mypost[8]
+                "points": (post_data[11] - post_data[10]),
+                "thread": post_data[12],
+                "user": post_data[8]
             })
-        returnData = {"code": 0, "response": postlist}
-        return jsonify(returnData)
+        return_data = {"code": 0, "response": post_list}
+        return jsonify(return_data)
 
     else:
-        returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-        return jsonify(returnData)
+        return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/remove/', methods=['POST'])
@@ -1592,73 +1592,73 @@ def thread_remove():
     try:
         data = request.get_json()
         thread = data['thread']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        if mythread:
-            if not mythread[8]:
-                q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if not thread_data[8]:
+                query_stmt = """
                     UPDATE threads set isDeleted = True
                     WHERE thread_id = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     UPDATE threads set posts = 0
                     WHERE thread_id = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     UPDATE posts set isDeleted = True
                     WHERE thread = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {"code": 0, "response": {"thread": thread}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread}}
+                return jsonify(return_data)
             else:
-                q = """
+                query_stmt = """
                     UPDATE threads set posts = 0
                     WHERE thread_id = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     UPDATE posts set isDeleted = True
                     WHERE thread = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {
+                return_data = {
                     "code": 0,
                     "response": {
-                        "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                        "dislikes": mythread[10],
-                        "forum": mythread[1],
-                        "id": mythread[0],
-                        "isClosed": bool(mythread[3]),
-                        "isDeleted": bool(mythread[8]),
-                        "likes": mythread[9],
-                        "message": mythread[6],
-                        "points": (mythread[9] - mythread[10]),
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
+                        "message": thread_data[6],
+                        "points": (thread_data[9] - thread_data[10]),
                         "posts": 0,
-                        "slug": mythread[7],
-                        "title": mythread[2],
-                        "user": mythread[4]
+                        "slug": thread_data[7],
+                        "title": thread_data[2],
+                        "user": thread_data[4]
                     }
                 }
-                return jsonify(returnData)
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/restore/', methods=['POST'])
@@ -1668,68 +1668,68 @@ def thread_restore():
     try:
         data = request.get_json()
         thread = data['thread']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        if mythread:
-            if mythread[8]:
-                q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if thread_data[8]:
+                query_stmt = """
                     UPDATE threads set isDeleted = False
                     WHERE thread_id = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     UPDATE posts set isDeleted = False
                     WHERE thread = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     SELECT count(*)
                     FROM posts
                     WHERE  thread = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 postcount = cursor.fetchone()
-                q = """
+                query_stmt = """
                     UPDATE threads set posts = %d
                     WHERE thread_id = %d
                     """ % (int(postcount[0]), int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {"code": 0, "response": {"thread": thread}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread}}
+                return jsonify(return_data)
             else:
-                returnData = {
+                return_data = {
                     "code": 0,
                     "response": {
-                        "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                        "dislikes": mythread[10],
-                        "forum": mythread[1],
-                        "id": mythread[0],
-                        "isClosed": bool(mythread[3]),
-                        "isDeleted": bool(mythread[8]),
-                        "likes": mythread[9],
-                        "message": mythread[6],
-                        "points": (mythread[9] - mythread[10]),
-                        "posts": mythread[11],
-                        "slug": mythread[7],
-                        "title": mythread[2],
-                        "user": mythread[4]
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
+                        "message": thread_data[6],
+                        "points": (thread_data[9] - thread_data[10]),
+                        "posts": thread_data[11],
+                        "slug": thread_data[7],
+                        "title": thread_data[2],
+                        "user": thread_data[4]
                     }
                 }
-                return jsonify(returnData)
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/close/', methods=['POST'])
@@ -1739,49 +1739,49 @@ def thread_close():
         thread = data['thread']
         db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test", charset='utf8')
         cursor = db.cursor()
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        if mythread:
-            if not mythread[3]:
-                q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if not thread_data[3]:
+                query_stmt = """
                     UPDATE threads set isClosed = True
                     WHERE thread_id = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {"code": 0, "response": {"thread": thread}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread}}
+                return jsonify(return_data)
             else:
-                returnData = {
+                return_data = {
                     "code": 0,
                     "response": {
-                        "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                        "dislikes": mythread[10],
-                        "forum": mythread[1],
-                        "id": mythread[0],
-                        "isClosed": bool(mythread[3]),
-                        "isDeleted": bool(mythread[8]),
-                        "likes": mythread[9],
-                        "message": mythread[6],
-                        "points": (mythread[9] - mythread[10]),
-                        "posts": mythread[11],
-                        "slug": mythread[7],
-                        "title": mythread[2],
-                        "user": mythread[4]
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
+                        "message": thread_data[6],
+                        "points": (thread_data[9] - thread_data[10]),
+                        "posts": thread_data[11],
+                        "slug": thread_data[7],
+                        "title": thread_data[2],
+                        "user": thread_data[4]
                     }
                 }
-                return jsonify(returnData)
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/open/', methods=['POST'])
@@ -1791,49 +1791,49 @@ def thread_open():
     try:
         data = request.get_json()
         thread = data['thread']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        if mythread:
-            if mythread[3]:
-                q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if thread_data[3]:
+                query_stmt = """
                     UPDATE threads set isClosed = False
                     WHERE thread_id = %d
                     """ % (int(thread))
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {"code": 0, "response": {"thread": thread}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread}}
+                return jsonify(return_data)
             else:
-                returnData = {
+                return_data = {
                     "code": 0,
                     "response": {
-                        "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                        "dislikes": mythread[10],
-                        "forum": mythread[1],
-                        "id": mythread[0],
-                        "isClosed": bool(mythread[3]),
-                        "isDeleted": bool(mythread[8]),
-                        "likes": mythread[9],
-                        "message": mythread[6],
-                        "points": (mythread[9] - mythread[10]),
-                        "posts": mythread[11],
-                        "slug": mythread[7],
-                        "title": mythread[2],
-                        "user": mythread[4]
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
+                        "message": thread_data[6],
+                        "points": (thread_data[9] - thread_data[10]),
+                        "posts": thread_data[11],
+                        "slug": thread_data[7],
+                        "title": thread_data[2],
+                        "user": thread_data[4]
                     }
                 }
-                return jsonify(returnData)
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/update/', methods=['POST'])
@@ -1845,71 +1845,71 @@ def thread_update():
         thread = data['thread']
         message = data['message']
         slug = data['slug']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        if mythread:
-            if (mythread[6] != message) or (mythread[7] != slug):
-                q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
+            if (thread_data[6] != message) or (thread_data[7] != slug):
+                query_stmt = """
                     UPDATE threads set message = '%s'
                     WHERE thread_id = %d
                     """ % (message, thread)
-                cursor.execute(q)
-                q = """
+                cursor.execute(query_stmt)
+                query_stmt = """
                     UPDATE threads set slug = '%s'
                     WHERE thread_id = %d
                     """ % (slug, thread)
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {
+                return_data = {
                     "code": 0,
                     "response": {
-                        "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                        "dislikes": mythread[10],
-                        "forum": mythread[1],
-                        "id": mythread[0],
-                        "isClosed": bool(mythread[3]),
-                        "isDeleted": bool(mythread[8]),
-                        "likes": mythread[9],
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
                         "message": message,
-                        "points": (mythread[9] - mythread[10]),
-                        "posts": mythread[11],
+                        "points": (thread_data[9] - thread_data[10]),
+                        "posts": thread_data[11],
                         "slug": slug,
-                        "title": mythread[2],
-                        "user": mythread[4]
+                        "title": thread_data[2],
+                        "user": thread_data[4]
                     }
                 }
-                return jsonify(returnData)
+                return jsonify(return_data)
             else:
-                returnData = {
+                return_data = {
                     "code": 0,
                     "response": {
-                        "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-                        "dislikes": mythread[10],
-                        "forum": mythread[1],
-                        "id": mythread[0],
-                        "isClosed": bool(mythread[3]),
-                        "isDeleted": bool(mythread[8]),
-                        "likes": mythread[9],
-                        "message": mythread[6],
-                        "points": (mythread[9] - mythread[10]),
-                        "posts": mythread[11],
-                        "slug": mythread[7],
-                        "title": mythread[2],
-                        "user": mythread[4]
+                        "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+                        "dislikes": thread_data[10],
+                        "forum": thread_data[1],
+                        "id": thread_data[0],
+                        "isClosed": bool(thread_data[3]),
+                        "isDeleted": bool(thread_data[8]),
+                        "likes": thread_data[9],
+                        "message": thread_data[6],
+                        "points": (thread_data[9] - thread_data[10]),
+                        "posts": thread_data[11],
+                        "slug": thread_data[7],
+                        "title": thread_data[2],
+                        "user": thread_data[4]
                     }
                 }
-                return jsonify(returnData)
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/vote/', methods=['POST'])
@@ -1920,58 +1920,58 @@ def thread_vote():
         data = request.get_json()
         vote = data['vote']
         thread = data['thread']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        if mythread:
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        if thread_data:
             if vote == 1:
-                q = """
+                query_stmt = """
                     UPDATE threads set likes = likes + 1
                     WHERE thread_id = %d
                     """ % (int(thread))
-                mylikes = mythread[9] + 1
-                mydislikes = mythread[10]
+                mylikes = thread_data[9] + 1
+                mydislikes = thread_data[10]
             elif vote == -1:
-                q = """
+                query_stmt = """
                     UPDATE threads set dislikes = dislikes + 1
                     WHERE thread_id = %d
                     """ % (int(thread))
-                mylikes = mythread[9]
-                mydislikes = mythread[10] + 1
+                mylikes = thread_data[9]
+                mydislikes = thread_data[10] + 1
             else:
-                returnData = {"code": 3, "response": "invalid syntax"}
-                return jsonify(returnData)
-            cursor.execute(q)
+                return_data = {"code": 3, "response": "invalid syntax"}
+                return jsonify(return_data)
+            cursor.execute(query_stmt)
             db.commit()
-            returnData = {
+            return_data = {
                 "code": 0,
                 "response": {
-                    "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
+                    "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
                     "dislikes": mydislikes,
-                    "forum": mythread[1],
-                    "id": mythread[0],
-                    "isClosed": bool(mythread[3]),
-                    "isDeleted": bool(mythread[8]),
+                    "forum": thread_data[1],
+                    "id": thread_data[0],
+                    "isClosed": bool(thread_data[3]),
+                    "isDeleted": bool(thread_data[8]),
                     "likes": mylikes,
-                    "message": mythread[6],
+                    "message": thread_data[6],
                     "points": (mylikes - mydislikes),
-                    "posts": mythread[11],
-                    "slug": mythread[7],
-                    "title": mythread[2],
-                    "user": mythread[4]
+                    "posts": thread_data[11],
+                    "slug": thread_data[7],
+                    "title": thread_data[2],
+                    "user": thread_data[4]
                 }
             }
-            return jsonify(returnData)
+            return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "THREAD NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/subscribe/', methods=['POST'])
@@ -1982,46 +1982,46 @@ def thread_subscribe():
         data = request.get_json()
         user = data['user']
         thread = data['thread']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
             """ % user
-        cursor.execute(q)
-        myuser = cursor.fetchone()
-        if (not mythread) or (not myuser):
-            returnData = {"code": 1, "response": "THREAD or USER NOT FOUND"}
-            return jsonify(returnData)
+        cursor.execute(query_stmt)
+        user_data = cursor.fetchone()
+        if (not thread_data) or (not user_data):
+            return_data = {"code": 1, "response": "THREAD or USER NOT FOUND"}
+            return jsonify(return_data)
         else:
-            q = """
+            query_stmt = """
                 SELECT *
                 FROM subscriptions
                 WHERE user = '%s' AND thread_id = %d
                 """ % (user, int(thread))
-            cursor.execute(q)
+            cursor.execute(query_stmt)
             mysub = cursor.fetchone()
             if not mysub:
-                q = """
+                query_stmt = """
                     INSERT into subscriptions (user, thread_id)
                     VALUES ('%s', %d)
                     """ % (user, thread)
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {"code": 0, "response": {"thread": thread, "user": user}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                return jsonify(return_data)
             else:
-                returnData = {"code": 0, "response": {"thread": thread, "user": user}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/thread/unsubscribe/', methods=['POST'])
@@ -2032,47 +2032,47 @@ def thread_unsubscribe():
         data = request.get_json()
         user = data['user']
         thread = data['thread']
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = %d
             """ % (int(thread))
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        q = """
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
             """ % user
-        cursor.execute(q)
-        myuser = cursor.fetchone()
-        if (not mythread) or (not myuser):
-            returnData = {"code": 1, "response": "THREAD or USER NOT FOUND"}
-            return jsonify(returnData)
+        cursor.execute(query_stmt)
+        user_data = cursor.fetchone()
+        if (not thread_data) or (not user_data):
+            return_data = {"code": 1, "response": "THREAD or USER NOT FOUND"}
+            return jsonify(return_data)
         else:
-            q = """
+            query_stmt = """
                 SELECT *
                 FROM subscriptions
                 WHERE user = '%s' AND thread_id = %d
                 """ % (user, int(thread))
-            cursor.execute(q)
+            cursor.execute(query_stmt)
             mysub = cursor.fetchone()
             if mysub:
-                q = """
+                query_stmt = """
                     DELETE
                     FROM subscriptions
                     WHERE user = '%s' AND thread_id = %d
                     """ % (user, thread)
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                returnData = {"code": 0, "response": {"thread": thread, "user": user}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                return jsonify(return_data)
             else:
-                returnData = {"code": 0, "response": {"thread": thread, "user": user}}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 # POST
@@ -2097,16 +2097,16 @@ def post_create():
         parent = data.get('parent', 0)
         if parent == None:
             parent = 0
-        q = """
+        query_stmt = """
             INSERT INTO posts (parent, isApproved, isEdited, isSpam, isDeleted, date, message, user, forum,
          thread, isHighlited)
             VALUES (%d, %d, %d, %d, %d, '%s', '%s', '%s', '%s', %d, %d)
             """ % (parent, isApproved, isEdit, isSpam,
                    isDeleted, date, message, user, forum, thread, isHighlighted)
-        cursor.execute(q)
+        cursor.execute(query_stmt)
         if parent == 0:
             parent = None
-        returnData = {
+        return_data = {
             "code": 0,
             "response": {
                 "date": date,
@@ -2123,16 +2123,16 @@ def post_create():
             }
         }
         db.commit()
-        q = """
+        query_stmt = """
             UPDATE threads set posts = posts + 1
             WHERE thread_id = %d
             """ % thread
-        cursor.execute(q)
+        cursor.execute(query_stmt)
         db.commit()
-        return jsonify(returnData)
+        return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/post/details/', methods=['GET'])
@@ -2141,135 +2141,135 @@ def post_details():
     cursor = db.cursor()
     post = request.args.get('post', '')
     related = request.args.getlist('related')
-    q = """
+    query_stmt = """
         SELECT * FROM posts
         WHERE post_id = '%s'
         """ % post
-    if cursor.execute(q) == 0:
-        returnData = {"code": 1, "response": "POST NOT FOUND"}
-        return jsonify(returnData)
-    mypost = cursor.fetchone()
+    if cursor.execute(query_stmt) == 0:
+        return_data = {"code": 1, "response": "POST NOT FOUND"}
+        return jsonify(return_data)
+    post_data = cursor.fetchone()
     if 'user' in related:
-        q = """
+        query_stmt = """
             SELECT *
             FROM users
             WHERE email = '%s'
-            """ % (mypost[8])
-        cursor.execute(q)
-        myuser = cursor.fetchone()
-        if myuser[2] == 'None':
+            """ % (post_data[8])
+        cursor.execute(query_stmt)
+        user_data = cursor.fetchone()
+        if user_data[2] == 'None':
             about = None
         else:
-            about = myuser[2]
-        if myuser[1] == 'None':
+            about = user_data[2]
+        if user_data[1] == 'None':
             username = None
         else:
-            username = myuser[1]
-        if myuser[3] == 'None':
+            username = user_data[1]
+        if user_data[3] == 'None':
             name = None
         else:
-            name = myuser[3]
-        q = """
+            name = user_data[3]
+        query_stmt = """
             SELECT who_user
             FROM followers
             WHERE whom_user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        myfollowers = cursor.fetchall()
-        q = """
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        followers = cursor.fetchall()
+        query_stmt = """
             SELECT whom_user
             FROM followers
             WHERE who_user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        myfollowing = cursor.fetchall()
-        q = """
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        following = cursor.fetchall()
+        query_stmt = """
             SELECT thread_id
             FROM subscriptions
             WHERE user = '%s'
-            """ % (myuser[4])
-        cursor.execute(q)
-        mysubs = cursor.fetchall()
-        userinfo = {
+            """ % (user_data[4])
+        cursor.execute(query_stmt)
+        subs = cursor.fetchall()
+        user_info = {
             "about": about,
-            "email": myuser[4],
-            "followers": [x[0] for x in myfollowers],
-            "following": [x[0] for x in myfollowing],
-            "id": myuser[0],
-            "isAnonymous": bool(myuser[5]),
+            "email": user_data[4],
+            "followers": [x[0] for x in followers],
+            "following": [x[0] for x in following],
+            "id": user_data[0],
+            "isAnonymous": bool(user_data[5]),
             "name": name,
-            "subscriptions": [x[0] for x in mysubs],
+            "subscriptions": [x[0] for x in subs],
             "username": username
         }
     else:
-        userinfo = mypost[8]
+        user_info = post_data[8]
     if 'forum' in related:
-        q = """
+        query_stmt = """
             SELECT *
             FROM forums
             WHERE short_name = '%s'
-            """ % (mypost[9])
-        cursor.execute(q)
-        myforum = cursor.fetchone()
+            """ % (post_data[9])
+        cursor.execute(query_stmt)
+        forum_data = cursor.fetchone()
         foruminfo = {
-            "id": myforum[3],
-            "name": myforum[0],
-            "short_name": myforum[1],
-            "user": myforum[2]
+            "id": forum_data[3],
+            "name": forum_data[0],
+            "short_name": forum_data[1],
+            "user": forum_data[2]
         }
     else:
-        foruminfo = mypost[9]
+        foruminfo = post_data[9]
     if 'thread' in related:
-        q = """
+        query_stmt = """
             SELECT *
             FROM threads
             WHERE thread_id = '%s'
-            """ % (mypost[12])
-        cursor.execute(q)
-        mythread = cursor.fetchone()
-        threadinfo = {
-            "date": mythread[5].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mythread[10],
-            "forum": mythread[1],
-            "id": mythread[0],
-            "isClosed": bool(mythread[3]),
-            "isDeleted": bool(mythread[8]),
-            "likes": mythread[9],
-            "message": mythread[6],
-            "points": (mythread[9] - mythread[10]),
-            "posts": mythread[11],
-            "slug": mythread[7],
-            "title": mythread[2],
-            "user": mythread[4]
+            """ % (post_data[12])
+        cursor.execute(query_stmt)
+        thread_data = cursor.fetchone()
+        thread_info = {
+            "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": thread_data[10],
+            "forum": thread_data[1],
+            "id": thread_data[0],
+            "isClosed": bool(thread_data[3]),
+            "isDeleted": bool(thread_data[8]),
+            "likes": thread_data[9],
+            "message": thread_data[6],
+            "points": (thread_data[9] - thread_data[10]),
+            "posts": thread_data[11],
+            "slug": thread_data[7],
+            "title": thread_data[2],
+            "user": thread_data[4]
         }
     else:
-        threadinfo = mypost[12]
-    if mypost[1] == 0:
+        thread_info = post_data[12]
+    if post_data[1] == 0:
         parent = None
     else:
-        parent = mypost[1]
+        parent = post_data[1]
 
-    returnData = {
+    return_data = {
         "code": 0,
         "response": {
-            "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mypost[10],
+            "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": post_data[10],
             "forum": foruminfo,
-            "id": mypost[0],
-            "isApproved": bool(mypost[2]),
-            "isDeleted": bool(mypost[5]),
-            "isEdited": bool(mypost[3]),
-            "isHighlighted": bool(mypost[13]),
-            "isSpam": bool(mypost[4]),
-            "likes": mypost[11],
-            "message": mypost[7],
+            "id": post_data[0],
+            "isApproved": bool(post_data[2]),
+            "isDeleted": bool(post_data[5]),
+            "isEdited": bool(post_data[3]),
+            "isHighlighted": bool(post_data[13]),
+            "isSpam": bool(post_data[4]),
+            "likes": post_data[11],
+            "message": post_data[7],
             "parent": parent,
-            "points": (mypost[11] - mypost[10]),
-            "thread": threadinfo,
-            "user": userinfo
+            "points": (post_data[11] - post_data[10]),
+            "thread": thread_info,
+            "user": user_info
         }
     }
-    return jsonify(returnData)
+    return jsonify(return_data)
 
 
 @app.route('/db/api/post/list/', methods=['GET'])
@@ -2279,53 +2279,53 @@ def post_list():
     thread = request.args.get('thread', False)
     forum = request.args.get('forum', False)
     if thread and forum:
-        returnData = {"code": 3, "response": "bad syntax"}
-        return jsonify(returnData)
+        return_data = {"code": 3, "response": "bad syntax"}
+        return jsonify(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', False)
-    q = """
+    query_stmt = """
         SELECT *
         FROM posts
         WHERE
         """
     if thread:
-        q += "thread =  %d" % (int(thread))
+        query_stmt += "thread =  %d" % (int(thread))
     else:
-        q += "forum = '%s' " % forum
+        query_stmt += "forum = '%s' " % forum
     if since:
-        q += " AND date >= '%s' " % since
+        query_stmt += " AND date >= '%s' " % since
     if order:
-        q += " ORDER BY date %s " % order
+        query_stmt += " ORDER BY date %s " % order
     if limit:
-        q += " LIMIT %d" % (int(limit))
-    cursor.execute(q)
-    myposts = cursor.fetchall()
+        query_stmt += " LIMIT %d" % (int(limit))
+    cursor.execute(query_stmt)
+    post_datas = cursor.fetchall()
     returnposts = []
-    for mypost in myposts:
-        if mypost[1] == 0:
+    for post_data in post_datas:
+        if post_data[1] == 0:
             parent = None
         else:
-            parent = mypost[1]
+            parent = post_data[1]
         returnposts.append({
-            "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-            "dislikes": mypost[10],
-            "forum": mypost[9],
-            "id": mypost[0],
-            "isApproved": bool(mypost[2]),
-            "isDeleted": bool(mypost[5]),
-            "isEdited": bool(mypost[3]),
-            "isHighlighted": bool(mypost[13]),
-            "isSpam": bool(mypost[4]),
-            "likes": mypost[11],
-            "message": mypost[7],
+            "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+            "dislikes": post_data[10],
+            "forum": post_data[9],
+            "id": post_data[0],
+            "isApproved": bool(post_data[2]),
+            "isDeleted": bool(post_data[5]),
+            "isEdited": bool(post_data[3]),
+            "isHighlighted": bool(post_data[13]),
+            "isSpam": bool(post_data[4]),
+            "likes": post_data[11],
+            "message": post_data[7],
             "parent": parent,
-            "points": (mypost[11] - mypost[10]),
-            "thread": mypost[12],
-            "user": mypost[8]
+            "points": (post_data[11] - post_data[10]),
+            "thread": post_data[12],
+            "user": post_data[8]
         })
-    returnData = {"code": 0, "response": returnposts}
-    return jsonify(returnData)
+    return_data = {"code": 0, "response": returnposts}
+    return jsonify(return_data)
 
 
 @app.route('/db/api/post/remove/', methods=['POST'])
@@ -2336,58 +2336,58 @@ def post_remove():
         data = request.get_json()
         post = data['post']
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
-    q = """
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
+    query_stmt = """
         SELECT *
         FROM posts
         WHERE post_id = %d
         """ % (int(post))
-    cursor.execute(q)
-    mypost = cursor.fetchone()
-    if mypost:
-        if mypost[5]:
-            if mypost[1] == 0:
+    cursor.execute(query_stmt)
+    post_data = cursor.fetchone()
+    if post_data:
+        if post_data[5]:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
+                parent = post_data[1]
             returnpost = {
-                "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-                "dislikes": mypost[10],
-                "forum": mypost[9],
-                "id": mypost[0],
-                "isApproved": bool(mypost[2]),
-                "isDeleted": bool(mypost[5]),
-                "isEdited": bool(mypost[3]),
-                "isHighlighted": bool(mypost[13]),
-                "isSpam": bool(mypost[4]),
-                "likes": mypost[11],
-                "message": mypost[7],
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post_data[10],
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": post_data[11],
+                "message": post_data[7],
                 "parent": parent,
-                "points": (mypost[11] - mypost[10]),
-                "thread": mypost[12],
-                "user": mypost[8]
+                "points": (post_data[11] - post_data[10]),
+                "thread": post_data[12],
+                "user": post_data[8]
             }
-            returnData = {"code": 0, "response": returnpost}
-            return jsonify(returnData)
+            return_data = {"code": 0, "response": returnpost}
+            return jsonify(return_data)
         else:
-            q = """
+            query_stmt = """
                 UPDATE posts set isDeleted = True
                 WHERE post_id = %d
                 """ % post
-            cursor.execute(q)
+            cursor.execute(query_stmt)
             db.commit()
-            q = """
+            query_stmt = """
                 UPDATE threads set posts = posts - 1
                 WHERE thread_id = %d
-                """ % (mypost[12])
-            cursor.execute(q)
+                """ % (post_data[12])
+            cursor.execute(query_stmt)
             db.commit()
-            returnData = {"code": 0, "response": {"post": post}}
-            return jsonify(returnData)
+            return_data = {"code": 0, "response": {"post": post}}
+            return jsonify(return_data)
     else:
-        returnData = {"code": 1, "response": "FORUM NOT FOUND"}
-        return jsonify(returnData)
+        return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/post/restore/', methods=['POST'])
@@ -2398,57 +2398,57 @@ def post_restore():
         data = request.get_json()
         post = data['post']
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
-    q = """
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
+    query_stmt = """
         SELECT *
         FROM posts
         WHERE post_id = %d
         """ % (int(post))
-    cursor.execute(q)
-    mypost = cursor.fetchone()
-    if mypost:
-        if not mypost[5]:
-            if mypost[1] == 0:
+    cursor.execute(query_stmt)
+    post_data = cursor.fetchone()
+    if post_data:
+        if not post_data[5]:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
+                parent = post_data[1]
             returnpost = {
-                "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-                "dislikes": mypost[10],
-                "forum": mypost[9],
-                "id": mypost[0],
-                "isApproved": bool(mypost[2]),
-                "isDeleted": bool(mypost[5]),
-                "isEdited": bool(mypost[3]),
-                "isHighlighted": bool(mypost[13]),
-                "isSpam": bool(mypost[4]),
-                "likes": mypost[11],
-                "message": mypost[7],
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "dislikes": post_data[10],
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
+                "likes": post_data[11],
+                "message": post_data[7],
                 "parent": parent,
-                "points": (mypost[11] - mypost[10]),
-                "thread": mypost[12],
-                "user": mypost[8]}
-            returnData = {"code": 0, "response": returnpost}
-            return jsonify(returnData)
+                "points": (post_data[11] - post_data[10]),
+                "thread": post_data[12],
+                "user": post_data[8]}
+            return_data = {"code": 0, "response": returnpost}
+            return jsonify(return_data)
         else:
-            q = """
+            query_stmt = """
                 UPDATE posts set isDeleted = False
                 WHERE post_id = %d
                 """ % post
-            cursor.execute(q)
+            cursor.execute(query_stmt)
             db.commit()
-            q = """
+            query_stmt = """
                 UPDATE threads set posts = posts + 1
                 WHERE thread_id = %d
-                """ % (mypost[12])
-            cursor.execute(q)
+                """ % (post_data[12])
+            cursor.execute(query_stmt)
             db.commit()
-            returnData = {"code": 0, "response": {"post": post}}
-            return jsonify(returnData)
+            return_data = {"code": 0, "response": {"post": post}}
+            return jsonify(return_data)
     else:
-        returnData = {"code": 1, "response": "POST NOT FOUND"}
-        return jsonify(returnData)
+        return_data = {"code": 1, "response": "POST NOT FOUND"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/post/update/', methods=['POST'])
@@ -2459,80 +2459,80 @@ def post_update():
         data = request.get_json()
         post = data['post']
         message = data['message']
-        q = """
+        query_stmt = """
             SELECT *
             FROM posts
             WHERE post_id = %d
             """ % (int(post))
-        cursor.execute(q)
-        mypost = cursor.fetchone()
-        if mypost:
-            if not mypost[7] == message:
-                q = """
+        cursor.execute(query_stmt)
+        post_data = cursor.fetchone()
+        if post_data:
+            if not post_data[7] == message:
+                query_stmt = """
                     UPDATE posts set message = '%s'
                     WHERE post_id = %d
                     """ % (message, post)
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                q = """
+                query_stmt = """
                     UPDATE posts set isEdited = True
                     WHERE post_id = %d
                     """ % post
-                cursor.execute(q)
+                cursor.execute(query_stmt)
                 db.commit()
-                if mypost[1] == 0:
+                if post_data[1] == 0:
                     parent = None
                 else:
-                    parent = mypost[1]
+                    parent = post_data[1]
                 returnpost = {
-                    "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-                    "dislikes": mypost[10],
-                    "forum": mypost[9],
-                    "id": mypost[0],
-                    "isApproved": bool(mypost[2]),
-                    "isDeleted": bool(mypost[5]),
+                    "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                    "dislikes": post_data[10],
+                    "forum": post_data[9],
+                    "id": post_data[0],
+                    "isApproved": bool(post_data[2]),
+                    "isDeleted": bool(post_data[5]),
                     "isEdited": True,
-                    "isHighlighted": bool(mypost[13]),
-                    "isSpam": bool(mypost[4]),
-                    "likes": mypost[11],
+                    "isHighlighted": bool(post_data[13]),
+                    "isSpam": bool(post_data[4]),
+                    "likes": post_data[11],
                     "message": message,
                     "parent": parent,
-                    "points": (mypost[11] - mypost[10]),
-                    "thread": mypost[12],
-                    "user": mypost[8]
+                    "points": (post_data[11] - post_data[10]),
+                    "thread": post_data[12],
+                    "user": post_data[8]
                 }
-                returnData = {"code": 0, "response": returnpost}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": returnpost}
+                return jsonify(return_data)
             else:
-                if mypost[1] == 0:
+                if post_data[1] == 0:
                     parent = None
                 else:
-                    parent = mypost[1]
+                    parent = post_data[1]
                 returnpost = {
-                    "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
-                    "dislikes": mypost[10],
-                    "forum": mypost[9],
-                    "id": mypost[0],
-                    "isApproved": bool(mypost[2]),
-                    "isDeleted": bool(mypost[5]),
-                    "isEdited": bool(mypost[3]),
-                    "isHighlighted": bool(mypost[13]),
-                    "isSpam": bool(mypost[4]),
-                    "likes": mypost[11],
-                    "message": mypost[7],
+                    "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
+                    "dislikes": post_data[10],
+                    "forum": post_data[9],
+                    "id": post_data[0],
+                    "isApproved": bool(post_data[2]),
+                    "isDeleted": bool(post_data[5]),
+                    "isEdited": bool(post_data[3]),
+                    "isHighlighted": bool(post_data[13]),
+                    "isSpam": bool(post_data[4]),
+                    "likes": post_data[11],
+                    "message": post_data[7],
                     "parent": parent,
-                    "points": (mypost[11] - mypost[10]),
-                    "thread": mypost[12],
-                    "user": mypost[8]
+                    "points": (post_data[11] - post_data[10]),
+                    "thread": post_data[12],
+                    "user": post_data[8]
                 }
-                returnData = {"code": 0, "response": returnpost}
-                return jsonify(returnData)
+                return_data = {"code": 0, "response": returnpost}
+                return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "POST NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "POST NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 @app.route('/db/api/post/vote/', methods=['POST'])
@@ -2543,62 +2543,62 @@ def post_vote():
         data = request.get_json()
         vote = data['vote']
         post = data['post']
-        q = """
+        query_stmt = """
             SELECT *
             FROM posts
             WHERE post_id = %d
             """ % (int(post))
-        cursor.execute(q)
-        mypost = cursor.fetchone()
-        if mypost:
+        cursor.execute(query_stmt)
+        post_data = cursor.fetchone()
+        if post_data:
             if vote == 1:
-                q = """
+                query_stmt = """
                     UPDATE posts set likes = likes + 1
                     WHERE post_id = %d
                     """ % (int(post))
-                mylikes = mypost[11] + 1
-                mydislikes = mypost[10]
+                mylikes = post_data[11] + 1
+                mydislikes = post_data[10]
             elif vote == -1:
-                q = """
+                query_stmt = """
                     UPDATE posts set dislikes = dislikes + 1
                     WHERE post_id = %d
                     """ % (int(post))
-                mylikes = mypost[11]
-                mydislikes = mypost[10] + 1
+                mylikes = post_data[11]
+                mydislikes = post_data[10] + 1
             else:
-                returnData = {"code": 3, "response": "invalid syntax"}
-                return jsonify(returnData)
-            cursor.execute(q)
+                return_data = {"code": 3, "response": "invalid syntax"}
+                return jsonify(return_data)
+            cursor.execute(query_stmt)
             db.commit()
-            if mypost[1] == 0:
+            if post_data[1] == 0:
                 parent = None
             else:
-                parent = mypost[1]
+                parent = post_data[1]
             returnpost = {
-                "date": mypost[6].strftime("%Y-%m-%d %H:%M:%S"),
+                "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
                 "dislikes": mydislikes,
-                "forum": mypost[9],
-                "id": mypost[0],
-                "isApproved": bool(mypost[2]),
-                "isDeleted": bool(mypost[5]),
-                "isEdited": bool(mypost[3]),
-                "isHighlighted": bool(mypost[13]),
-                "isSpam": bool(mypost[4]),
+                "forum": post_data[9],
+                "id": post_data[0],
+                "isApproved": bool(post_data[2]),
+                "isDeleted": bool(post_data[5]),
+                "isEdited": bool(post_data[3]),
+                "isHighlighted": bool(post_data[13]),
+                "isSpam": bool(post_data[4]),
                 "likes": mylikes,
-                "message": mypost[7],
+                "message": post_data[7],
                 "parent": parent,
                 "points": (mylikes - mydislikes),
-                "thread": mypost[12],
-                "user": mypost[8]
+                "thread": post_data[12],
+                "user": post_data[8]
             }
-            returnData = {"code": 0, "response": returnpost}
-            return jsonify(returnData)
+            return_data = {"code": 0, "response": returnpost}
+            return jsonify(return_data)
         else:
-            returnData = {"code": 1, "response": "POST NOT FOUND"}
-            return jsonify(returnData)
+            return_data = {"code": 1, "response": "POST NOT FOUND"}
+            return jsonify(return_data)
     except KeyError:
-        returnData = {"code": 2, "response": "invalid json format"}
-        return jsonify(returnData)
+        return_data = {"code": 2, "response": "invalid json format"}
+        return jsonify(return_data)
 
 
 if __name__ == '__main__':
