@@ -15,7 +15,7 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 
 @app.route('/db/api/clear/', methods=['POST'])
 def clear():
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     cursor.execute("truncate table forums")
     cursor.execute("truncate table users")
@@ -31,7 +31,7 @@ def clear():
 
 @app.route('/db/api/status/', methods=['GET'])
 def status():
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     cursor.execute("select count(*) from users")
     users = cursor.fetchone()
@@ -56,7 +56,7 @@ def forum_create():
         short_name = data['short_name']
         user = data['user']
         q = "INSERT INTO forums (name,short_name,user) values ('%s','%s','%s')" % (name, short_name, user)
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         cursor.execute(q)
         returnData = {"code": 0, "response": {'id': cursor.lastrowid, "name": name, "short_name": short_name,
@@ -70,7 +70,7 @@ def forum_create():
                 q = "SELECT * from forums where short_name = '%s'" % (short_name)
             else:
                 q = "SELECT * from forums where name = '%s'" % (name)
-            db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+            db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
             cursor = db.cursor()
             cursor.execute(q)
             myforum = cursor.fetchone()
@@ -86,7 +86,7 @@ def forum_create():
 def forum_details():
     forum = request.args.get('forum', '')
     related = request.args.getlist('related')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM forums where short_name = '%s'" % (forum)
     if cursor.execute(q) == 0:
@@ -139,7 +139,7 @@ def forum_listPosts():
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM forums where short_name = '%s'" % (forum)
     if cursor.execute(q) == 0:
@@ -230,7 +230,7 @@ def forum_listThreads():
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM forums where short_name = '%s'" % (forum)
     if cursor.execute(q) == 0:
@@ -301,7 +301,7 @@ def forum_listUsers():
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
     since = request.args.get('since_id', False)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM forums where short_name = '%s'" % (forum)
     if cursor.execute(q) == 0:
@@ -374,7 +374,7 @@ def user_create():
         else:
             q = """INSERT INTO users (username, about, name, email, isAnonymous) values
             ('%s','%s',Null,'%s',%d)""" % (username, about, email, isAnonymous)
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         cursor.execute(q)
         returnData = {"code": 0, "response": {"about": about, "email": email, "id": cursor.lastrowid,
@@ -394,7 +394,7 @@ def user_create():
 @app.route('/db/api/user/details/', methods=['GET'])
 def user_details():
     user = request.args.get('user', '')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM users where email = '%s'" % (user)
     if cursor.execute(q) == 0:
@@ -442,7 +442,7 @@ def user_listPosts():
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', 'desc')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "select * from users where email = '%s'" % (user)
     cursor.execute(q)
@@ -485,7 +485,7 @@ def user_updateProfile():
         user = data['user']
         about = data['about']
         name = data['name']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM users where email = '%s' " % (user)
         cursor.execute(q)
@@ -570,7 +570,7 @@ def user_follow():
         if followee == follower:
             returnData = {"code": 3, "response": "WTF!"}
             return jsonify(returnData)
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM users where email = '%s' " % (followee)
         cursor.execute(q)
@@ -671,7 +671,7 @@ def user_listFollowers():
     limit = request.args.get('limit', False)
     since_id = request.args.get('since_id', False)
     order = request.args.get('order', 'desc')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "select * from users where email = '%s'" % (user)
     cursor.execute(q)
@@ -742,7 +742,7 @@ def user_listFollowing():
     limit = request.args.get('limit', False)
     since_id = request.args.get('since_id', False)
     order = request.args.get('order', 'desc')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "select * from users where email = '%s'" % (user)
     cursor.execute(q)
@@ -808,7 +808,7 @@ def uesr_unfollow():
         if followee == follower:
             returnData = {"code": 3, "response": "WTF!"}
             return jsonify(returnData)
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM users where email = '%s' " % (followee)
         cursor.execute(q)
@@ -915,7 +915,7 @@ def thread_create():
         isDeleted = data.get('isDeleted', False)
         q = """INSERT INTO threads (forum, title, isClosed, user, date, message,slug, isDeleted) values
         ('%s', '%s', %d, '%s', '%s', '%s', '%s', %d)""" % (forum, title, isClosed, user, date, message, slug, isDeleted)
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         cursor.execute(q)
         db.commit()
@@ -933,7 +933,7 @@ def thread_create():
 def thread_details():
     thread = request.args.get('thread', '')
     related = request.args.getlist('related')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM threads where thread_id = '%s'" % (thread)
     if cursor.execute(q) == 0:
@@ -1002,7 +1002,7 @@ def thread_list():
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', False)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM threads where "
     if user:
@@ -1039,7 +1039,7 @@ def thread_listpost():
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', 'desc')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "select * from threads where thread_id = %d" % (int(thread))
     cursor.execute(q)
@@ -1080,7 +1080,7 @@ def thread_remove():
     try:
         data = request.get_json()
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "select * from threads where thread_id = %d" % (int(thread))
         cursor.execute(q)
@@ -1125,7 +1125,7 @@ def thread_restore():
     try:
         data = request.get_json()
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "select * from threads where thread_id = %d" % (int(thread))
         cursor.execute(q)
@@ -1169,7 +1169,7 @@ def thread_close():
     try:
         data = request.get_json()
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "select * from threads where thread_id = %d" % (int(thread))
         cursor.execute(q)
@@ -1202,7 +1202,7 @@ def thread_open():
     try:
         data = request.get_json()
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "select * from threads where thread_id = %d" % (int(thread))
         cursor.execute(q)
@@ -1237,7 +1237,7 @@ def thread_update():
         thread = data['thread']
         message = data['message']
         slug = data['slug']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM threads where thread_id = %d " % (int(thread))
         cursor.execute(q)
@@ -1276,7 +1276,7 @@ def thread_vote():
         data = request.get_json()
         vote = data['vote']
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM threads where thread_id = %d " % (int(thread))
         cursor.execute(q)
@@ -1317,7 +1317,7 @@ def thread_subscribe():
         data = request.get_json()
         user = data['user']
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM threads where thread_id = %d " % (int(thread))
         cursor.execute(q)
@@ -1355,7 +1355,7 @@ def thread_unsubscribe():
         data = request.get_json()
         user = data['user']
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM threads where thread_id = %d " % (int(thread))
         cursor.execute(q)
@@ -1412,7 +1412,7 @@ def post_create():
          values (%d, %d, %d, %d, %d, '%s', '%s', '%s', '%s', %d, %d)""" % (parent, isApproved, isEdit, isSpam,
                                                                            isDeleted, date, message,
                                                                            user, forum, thread, isHighlighted)
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         cursor.execute(q)
         if parent == 0:
@@ -1436,7 +1436,7 @@ def post_create():
 def post_details():
     post = request.args.get('post', '')
     related = request.args.getlist('related')
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM posts where post_id = '%s'" % (post)
     if cursor.execute(q) == 0:
@@ -1519,7 +1519,7 @@ def post_list():
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
     order = request.args.get('order', False)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM posts where "
     if thread:
@@ -1561,7 +1561,7 @@ def post_remove():
     except KeyError:
         returnData = {"code": 2, "response": "invalid json format"}
         return jsonify(returnData)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM posts where post_id = %d " % (int(post))
     cursor.execute(q)
@@ -1604,7 +1604,7 @@ def post_restore():
     except KeyError:
         returnData = {"code": 2, "response": "invalid json format"}
         return jsonify(returnData)
-    db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+    db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
     cursor = db.cursor()
     q = "SELECT * FROM posts where post_id = %d " % (int(post))
     cursor.execute(q)
@@ -1645,7 +1645,7 @@ def post_update():
         data = request.get_json()
         post = data['post']
         message = data['message']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM posts where post_id = %d " % (int(post))
         cursor.execute(q)
@@ -1699,7 +1699,7 @@ def post_vote():
         data = request.get_json()
         vote = data['vote']
         post = data['post']
-        db = MySQLdb.connect(host='localhost', user="root", passwd="110794", db="db", charset='utf8')
+        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_perf_test", charset='utf8')
         cursor = db.cursor()
         q = "SELECT * FROM posts where post_id = %d " % (int(post))
         cursor.execute(q)
@@ -1743,4 +1743,3 @@ def post_vote():
 
 if __name__ == '__main__':
     app.run()
-
