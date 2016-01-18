@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, jsonify, request
-import MySQLdb
 from _mysql_exceptions import IntegrityError
 from flaskext.mysql import MySQL
 import ujson
@@ -33,6 +32,7 @@ def clear():
     for name in names_array:
         cursor.execute(query_str + name)
     connection.commit()
+    cursor.close()
     return_data = {"code": 0, "response": "OK"}
     return ujson.dumps(return_data)
 
@@ -57,6 +57,7 @@ def status():
             "post": data_array[3]
         }
     }
+    cursor.close()
     return ujson.dumps(return_data)
 
 
@@ -66,7 +67,6 @@ def status():
 def forum_create():
     """Create new forum"""
     try:
-        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test", charset='utf8')
         cursor = curs()
         data = request.get_json()
         name = data['name']
@@ -87,6 +87,7 @@ def forum_create():
             }
         }
         connection.commit()
+        cursor.close()
         return ujson.dumps(return_data)
     except IntegrityError, e:
         if e[0] == 1062:
@@ -102,8 +103,6 @@ def forum_create():
                     FROM forums
                     WHERE name = '%s'
                     """ % name
-            db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test",
-                                 charset='utf8')
             cursor = curs()
             cursor.execute(query_stmt)
             forum_data = cursor.fetchone()
@@ -116,9 +115,11 @@ def forum_create():
                     "user": forum_data[2]
                 }
             }
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -135,6 +136,7 @@ def forum_details():
         """ % forum
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
     forum_data = cursor.fetchone()
     if 'user' in related:
@@ -200,6 +202,7 @@ def forum_details():
             "user": user_info
         }
     }
+    cursor.close()
     return ujson.dumps(return_data)
 
 
@@ -210,6 +213,7 @@ def forum_listPosts():
     forum = request.args.get('forum')
     if not forum:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     related = request.args.getlist('related')
     order = request.args.get('order', 'desc')
@@ -222,6 +226,7 @@ def forum_listPosts():
         """ % forum
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
     forum_data = cursor.fetchone()
     query_stmt = """
@@ -238,14 +243,14 @@ def forum_listPosts():
     post_datas = cursor.fetchall()
     if 'forum' in related:
         related.remove('forum')
-        foruminfo = {
+        forum_info = {
             "id": forum_data[3],
             "name": forum_data[0],
             "short_name": forum_data[1],
             "user": forum_data[2]
         }
     else:
-        foruminfo = forum
+        forum_info = forum
     ListPosts = []
     for post_data in post_datas:
         if 'user' in related:
@@ -336,7 +341,7 @@ def forum_listPosts():
         return_data = {
             "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
             "dislikes": post_data[10],
-            "forum": foruminfo,
+            "forum": forum_info,
             "id": post_data[0],
             "isApproved": bool(post_data[2]),
             "isDeleted": bool(post_data[5]),
@@ -351,6 +356,7 @@ def forum_listPosts():
             "user": user_info
         }
         ListPosts.append(return_data)
+    cursor.close()
     return jsonify({"code": 0, "response": ListPosts})
 
 
@@ -361,6 +367,7 @@ def forum_listThreads():
     forum = request.args.get('forum')
     if not forum:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     related = request.args.getlist('related')
     order = request.args.get('order', 'desc')
@@ -373,6 +380,7 @@ def forum_listThreads():
         """ % forum
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
     forum_data = cursor.fetchone()
     query_stmt = """
@@ -388,14 +396,14 @@ def forum_listThreads():
     cursor.execute(query_stmt)
     thread_datas = cursor.fetchall()
     if 'forum' in related:
-        foruminfo = {
+        forum_info = {
             "id": forum_data[3],
             "name": forum_data[0],
             "short_name": forum_data[1],
             "user": forum_data[2]
         }
     else:
-        foruminfo = forum
+        forum_info = forum
     threads_list = []
     for thread_data in thread_datas:
         if 'user' in related:
@@ -456,7 +464,7 @@ def forum_listThreads():
         return_data = {
             "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
             "dislikes": thread_data[10],
-            "forum": foruminfo,
+            "forum": forum_info,
             "id": thread_data[0],
             "isClosed": bool(thread_data[3]),
             "isDeleted": bool(thread_data[8]),
@@ -469,6 +477,7 @@ def forum_listThreads():
             "user": user_info
         }
         threads_list.append(return_data)
+    cursor.close()
     return jsonify({"code": 0, "response": threads_list})
 
 
@@ -478,6 +487,7 @@ def forum_listUsers():
     forum = request.args.get('forum')
     if not forum:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     order = request.args.get('order', 'desc')
     limit = request.args.get('limit', False)
@@ -489,6 +499,7 @@ def forum_listUsers():
         """ % forum
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
     query_stmt = """
@@ -552,6 +563,7 @@ def forum_listUsers():
             "username": username
         }
         user_list.append(user_info)
+    cursor.close()
     return jsonify({"code": 0, "response": user_list})
 
 
@@ -608,9 +620,11 @@ def post_create():
             """ % thread
         cursor.execute(query_stmt)
         connection.commit()
+        cursor.close()
         return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -625,6 +639,7 @@ def post_details():
         """ % post
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "POST NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
     post_data = cursor.fetchone()
     if 'user' in related:
@@ -689,14 +704,14 @@ def post_details():
             """ % (post_data[9])
         cursor.execute(query_stmt)
         forum_data = cursor.fetchone()
-        foruminfo = {
+        forum_info = {
             "id": forum_data[3],
             "name": forum_data[0],
             "short_name": forum_data[1],
             "user": forum_data[2]
         }
     else:
-        foruminfo = post_data[9]
+        forum_info = post_data[9]
     if 'thread' in related:
         query_stmt = """
             SELECT *
@@ -732,7 +747,7 @@ def post_details():
         "response": {
             "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
             "dislikes": post_data[10],
-            "forum": foruminfo,
+            "forum": forum_info,
             "id": post_data[0],
             "isApproved": bool(post_data[2]),
             "isDeleted": bool(post_data[5]),
@@ -747,6 +762,7 @@ def post_details():
             "user": user_info
         }
     }
+    cursor.close()
     return ujson.dumps(return_data)
 
 
@@ -757,6 +773,7 @@ def post_list():
     forum = request.args.get('forum', False)
     if thread and forum:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
@@ -802,6 +819,7 @@ def post_list():
             "user": post_data[8]
         })
     return_data = {"code": 0, "response": returnposts}
+    cursor.close()
     return ujson.dumps(return_data)
 
 
@@ -813,6 +831,7 @@ def post_remove():
         post = data['post']
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
     query_stmt = """
         SELECT *
@@ -845,6 +864,7 @@ def post_remove():
                 "user": post_data[8]
             }
             return_data = {"code": 0, "response": returnpost}
+            cursor.close()
             return ujson.dumps(return_data)
         else:
             query_stmt = """
@@ -863,6 +883,7 @@ def post_remove():
             return ujson.dumps(return_data)
     else:
         return_data = {"code": 1, "response": "FORUM NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -874,6 +895,7 @@ def post_restore():
         post = data['post']
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
     query_stmt = """
         SELECT *
@@ -905,6 +927,7 @@ def post_restore():
                 "thread": post_data[12],
                 "user": post_data[8]}
             return_data = {"code": 0, "response": returnpost}
+            cursor.close()
             return ujson.dumps(return_data)
         else:
             query_stmt = """
@@ -920,9 +943,11 @@ def post_restore():
             cursor.execute(query_stmt)
             connection.commit()
             return_data = {"code": 0, "response": {"post": post}}
+            cursor.close()
             return ujson.dumps(return_data)
     else:
         return_data = {"code": 1, "response": "POST NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -976,6 +1001,7 @@ def post_update():
                     "user": post_data[8]
                 }
                 return_data = {"code": 0, "response": returnpost}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 if post_data[1] == 0:
@@ -1000,12 +1026,15 @@ def post_update():
                     "user": post_data[8]
                 }
                 return_data = {"code": 0, "response": returnpost}
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "POST NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1029,17 +1058,18 @@ def post_vote():
                     UPDATE posts set likes = likes + 1
                     WHERE post_id = %d
                     """ % (int(post))
-                mylikes = post_data[11] + 1
-                mydislikes = post_data[10]
+                likes = post_data[11] + 1
+                dislikes = post_data[10]
             elif vote == -1:
                 query_stmt = """
                     UPDATE posts set dislikes = dislikes + 1
                     WHERE post_id = %d
                     """ % (int(post))
-                mylikes = post_data[11]
-                mydislikes = post_data[10] + 1
+                likes = post_data[11]
+                dislikes = post_data[10] + 1
             else:
                 return_data = {"code": 3, "response": "invalid syntax"}
+                cursor.close()
                 return ujson.dumps(return_data)
             cursor.execute(query_stmt)
             connection.commit()
@@ -1049,7 +1079,7 @@ def post_vote():
                 parent = post_data[1]
             returnpost = {
                 "date": post_data[6].strftime("%Y-%m-%d %H:%M:%S"),
-                "dislikes": mydislikes,
+                "dislikes": dislikes,
                 "forum": post_data[9],
                 "id": post_data[0],
                 "isApproved": bool(post_data[2]),
@@ -1057,20 +1087,23 @@ def post_vote():
                 "isEdited": bool(post_data[3]),
                 "isHighlighted": bool(post_data[13]),
                 "isSpam": bool(post_data[4]),
-                "likes": mylikes,
+                "likes": likes,
                 "message": post_data[7],
                 "parent": parent,
-                "points": (mylikes - mydislikes),
+                "points": (likes - dislikes),
                 "thread": post_data[12],
                 "user": post_data[8]
             }
             return_data = {"code": 0, "response": returnpost}
+            cursor.close()
             return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "POST NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1106,13 +1139,16 @@ def user_create():
             }
         }
         connection.commit()
+        cursor.close()
         return ujson.dumps(return_data)
     except IntegrityError, e:
         if e[0] == 1062:
             return_data = {"code": 5, "response": "duplicate user"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1127,6 +1163,7 @@ def user_details():
         """ % user
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "USER NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
     else:
         user_data = cursor.fetchone()
@@ -1176,6 +1213,7 @@ def user_details():
             "username": username
         }
         return_data = {"code": 0, "response": user_info}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1184,10 +1222,11 @@ def user_follow():
     cursor = curs()
     try:
         data = request.get_json()
-        follower = data['follower']  # who
-        followee = data['followee']  # whom
+        follower = data['follower']  
+        followee = data['followee']  
         if followee == follower:
             return_data = {"code": 3, "response": "WTF!"}
+            cursor.close()
             return ujson.dumps(return_data)
         query_stmt = """
             SELECT *
@@ -1264,10 +1303,11 @@ def user_follow():
                         "username": username
                     }
                     return_data = {"code": 0, "response": user_info}
+                    cursor.close()
                     return ujson.dumps(return_data)
                 else:
                     return_data = {"code": 1, "response": "USER NOT FOUND"}
-
+                    cursor.close()
                     return ujson.dumps(return_data)
             else:
                 query_stmt = """
@@ -1323,14 +1363,16 @@ def user_follow():
                     "username": username
                 }
                 return_data = {"code": 0, "response": user_info}
+                cursor.close()
                 return ujson.dumps(return_data)
 
         else:
             return_data = {"code": 1, "response": "USER NOT FOUND"}
-
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1340,6 +1382,7 @@ def user_listFollowers():
     user = request.args.get('user', False)
     if not user:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     limit = request.args.get('limit', False)
     since_id = request.args.get('since_id', False)
@@ -1408,9 +1451,11 @@ def user_listFollowers():
             }
             followers_list.append(user_info)
         return_data = {"code": 0, "response": followers_list}
+        cursor.close()
         return ujson.dumps(return_data)
     else:
         return_data = {"code": 1, "response": "USER NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1420,6 +1465,7 @@ def user_listFollowing():
     user = request.args.get('user', False)
     if not user:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     limit = request.args.get('limit', False)
     since_id = request.args.get('since_id', False)
@@ -1492,9 +1538,11 @@ def user_listFollowing():
             }
             following_list.append(user_info)
         return_data = {"code": 0, "response": following_list}
+        cursor.close()
         return ujson.dumps(return_data)
     else:
         return_data = {"code": 1, "response": "USER NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1504,6 +1552,7 @@ def user_listPosts():
     user = request.args.get('user', False)
     if not user:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
@@ -1553,10 +1602,12 @@ def user_listPosts():
                 "user": post_data[8]
             })
         return_data = {"code": 0, "response": post_list}
+        cursor.close()
         return ujson.dumps(return_data)
 
     else:
         return_data = {"code": 1, "response": "USER NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1569,6 +1620,7 @@ def user_unfollow():
         followee = data['followee']  # whom
         if followee == follower:
             return_data = {"code": 3, "response": "WTF!"}
+            cursor.close()
             return ujson.dumps(return_data)
         query_stmt = """
             SELECT *
@@ -1646,10 +1698,11 @@ def user_unfollow():
                         "username": username
                     }
                     return_data = {"code": 0, "response": user_info}
+                    cursor.close()
                     return ujson.dumps(return_data)
                 else:
                     return_data = {"code": 1, "response": "USER NOT FOUND"}
-
+                    cursor.close()
                     return ujson.dumps(return_data)
             else:
                 query_stmt = """
@@ -1704,12 +1757,15 @@ def user_unfollow():
                     "username": username
                 }
                 return_data = {"code": 0, "response": user_info}
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "USER NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1782,6 +1838,7 @@ def user_updateProfile():
                     "username": username
                 }
                 return_data = {"code": 0, "response": user_info}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
 
@@ -1831,12 +1888,15 @@ def user_updateProfile():
                     "username": username
                 }
                 return_data = {"code": 0, "response": user_info}
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "USER NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1847,7 +1907,6 @@ def thread_close():
     try:
         data = request.get_json()
         thread = data['thread']
-        db = MySQLdb.connect(host='localhost', user="db_api_user", passwd="passwd", db="db_func_test", charset='utf8')
         cursor = curs()
         query_stmt = """
             SELECT *
@@ -1865,6 +1924,7 @@ def thread_close():
                 cursor.execute(query_stmt)
                 connection.commit()
                 return_data = {"code": 0, "response": {"thread": thread}}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 return_data = {
@@ -1885,12 +1945,15 @@ def thread_close():
                         "user": thread_data[4]
                     }
                 }
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1926,9 +1989,11 @@ def thread_create():
                 'user': user
             }
         }
+        cursor.close()
         return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -1944,6 +2009,7 @@ def thread_details():
         """ % thread
     if cursor.execute(query_stmt) == 0:
         return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
     thread_data = cursor.fetchone()
     if 'user' in related:
@@ -2010,23 +2076,24 @@ def thread_details():
             """ % (thread_data[1])
         cursor.execute(query_stmt)
         forum_data = cursor.fetchone()
-        foruminfo = {
+        forum_info = {
             "id": forum_data[3],
             "name": forum_data[0],
             "short_name": forum_data[1],
             "user": forum_data[2]
         }
     else:
-        foruminfo = thread_data[1]
+        forum_info = thread_data[1]
     if related:
         return_data = {"code": 3, "response": "invalid syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     return_data = {
         "code": 0,
         "response": {
             "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
             "dislikes": thread_data[10],
-            "forum": foruminfo,
+            "forum": forum_info,
             "id": thread_data[0],
             "isClosed": bool(thread_data[3]),
             "isDeleted": bool(thread_data[8]),
@@ -2039,6 +2106,7 @@ def thread_details():
             "user": user_info
         }
     }
+    cursor.close()
     return ujson.dumps(return_data)
 
 
@@ -2049,6 +2117,7 @@ def thread_list():
     forum = request.args.get('forum', False)
     if user and forum:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
@@ -2088,6 +2157,7 @@ def thread_list():
             "user": thread_data[4]
         })
     return_data = {"code": 0, "response": returnthreads}
+    cursor.close()
     return ujson.dumps(return_data)
 
 
@@ -2097,6 +2167,7 @@ def thread_listpost():
     thread = request.args.get('thread', False)
     if not thread:
         return_data = {"code": 3, "response": "bad syntax"}
+        cursor.close()
         return ujson.dumps(return_data)
     limit = request.args.get('limit', False)
     since = request.args.get('since', False)
@@ -2145,10 +2216,12 @@ def thread_listpost():
                 "user": post_data[8]
             })
         return_data = {"code": 0, "response": post_list}
+        cursor.close()
         return ujson.dumps(return_data)
 
     else:
         return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -2174,6 +2247,7 @@ def thread_open():
                 cursor.execute(query_stmt)
                 connection.commit()
                 return_data = {"code": 0, "response": {"thread": thread}}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 return_data = {
@@ -2194,12 +2268,15 @@ def thread_open():
                         "user": thread_data[4]
                     }
                 }
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -2237,6 +2314,7 @@ def thread_remove():
                 cursor.execute(query_stmt)
                 connection.commit()
                 return_data = {"code": 0, "response": {"thread": thread}}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 query_stmt = """
@@ -2269,12 +2347,15 @@ def thread_remove():
                         "user": thread_data[4]
                     }
                 }
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -2319,6 +2400,7 @@ def thread_restore():
                 cursor.execute(query_stmt)
                 connection.commit()
                 return_data = {"code": 0, "response": {"thread": thread}}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 return_data = {
@@ -2339,12 +2421,15 @@ def thread_restore():
                         "user": thread_data[4]
                     }
                 }
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -2371,6 +2456,7 @@ def thread_subscribe():
         user_data = cursor.fetchone()
         if (not thread_data) or (not user_data):
             return_data = {"code": 1, "response": "THREAD or USER NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
         else:
             query_stmt = """
@@ -2379,8 +2465,8 @@ def thread_subscribe():
                 WHERE user = '%s' AND thread_id = %d
                 """ % (user, int(thread))
             cursor.execute(query_stmt)
-            mysub = cursor.fetchone()
-            if not mysub:
+            sub = cursor.fetchone()
+            if not sub:
                 query_stmt = """
                     INSERT into subscriptions (user, thread_id)
                     VALUES ('%s', %d)
@@ -2388,9 +2474,11 @@ def thread_subscribe():
                 cursor.execute(query_stmt)
                 connection.commit()
                 return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                cursor.close()
                 return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
@@ -2420,6 +2508,7 @@ def thread_unsubscribe():
         user_data = cursor.fetchone()
         if (not thread_data) or (not user_data):
             return_data = {"code": 1, "response": "THREAD or USER NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
         else:
             query_stmt = """
@@ -2428,8 +2517,8 @@ def thread_unsubscribe():
                 WHERE user = '%s' AND thread_id = %d
                 """ % (user, int(thread))
             cursor.execute(query_stmt)
-            mysub = cursor.fetchone()
-            if mysub:
+            sub = cursor.fetchone()
+            if sub:
                 query_stmt = """
                     DELETE
                     FROM subscriptions
@@ -2438,12 +2527,15 @@ def thread_unsubscribe():
                 cursor.execute(query_stmt)
                 connection.commit()
                 return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 return_data = {"code": 0, "response": {"thread": thread, "user": user}}
+                cursor.close()
                 return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -2493,6 +2585,7 @@ def thread_update():
                         "user": thread_data[4]
                     }
                 }
+                cursor.close()
                 return ujson.dumps(return_data)
             else:
                 return_data = {
@@ -2513,12 +2606,15 @@ def thread_update():
                         "user": thread_data[4]
                     }
                 }
+                cursor.close()
                 return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
@@ -2542,15 +2638,15 @@ def thread_vote():
                     UPDATE threads set likes = likes + 1
                     WHERE thread_id = %d
                     """ % (int(thread))
-                mylikes = thread_data[9] + 1
-                mydislikes = thread_data[10]
+                likes = thread_data[9] + 1
+                dislikes = thread_data[10]
             elif vote == -1:
                 query_stmt = """
                     UPDATE threads set dislikes = dislikes + 1
                     WHERE thread_id = %d
                     """ % (int(thread))
-                mylikes = thread_data[9]
-                mydislikes = thread_data[10] + 1
+                likes = thread_data[9]
+                dislikes = thread_data[10] + 1
             else:
                 return_data = {"code": 3, "response": "invalid syntax"}
                 return ujson.dumps(return_data)
@@ -2560,26 +2656,29 @@ def thread_vote():
                 "code": 0,
                 "response": {
                     "date": thread_data[5].strftime("%Y-%m-%d %H:%M:%S"),
-                    "dislikes": mydislikes,
+                    "dislikes": dislikes,
                     "forum": thread_data[1],
                     "id": thread_data[0],
                     "isClosed": bool(thread_data[3]),
                     "isDeleted": bool(thread_data[8]),
-                    "likes": mylikes,
+                    "likes": likes,
                     "message": thread_data[6],
-                    "points": (mylikes - mydislikes),
+                    "points": (likes - dislikes),
                     "posts": thread_data[11],
                     "slug": thread_data[7],
                     "title": thread_data[2],
                     "user": thread_data[4]
                 }
             }
+            cursor.close()
             return ujson.dumps(return_data)
         else:
             return_data = {"code": 1, "response": "THREAD NOT FOUND"}
+            cursor.close()
             return ujson.dumps(return_data)
     except KeyError:
         return_data = {"code": 2, "response": "invalid json format"}
+        cursor.close()
         return ujson.dumps(return_data)
 
 
